@@ -48,3 +48,5 @@ This tool checks correctness, not just availability.
 - [ ] v0.2 — Local/private endpoint support via tunnel (December 2026)
 - [ ] v1.0 — GitHub Action + hosted web UI (Q1 2027)
 - [ ] v2.0 — Domain ontology checks for FinTech and healthcare-adjacent AI agents
+
+> [Book a manual audit](https://calendly.com/sriramkarthick-rj/30min) while the CLI is being built.
