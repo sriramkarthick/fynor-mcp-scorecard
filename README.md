@@ -123,7 +123,7 @@ fynor/
 │   ├── grpc/         # gRPC agent-readiness
 │   ├── websocket/    # WebSocket agent-readiness
 │   ├── soap/         # SOAP agent-readiness
-│   ├── cli/          # CLI tool agent-readiness
+│   ├── cli_tool/          # CLI tool agent-readiness
 │   └── security/     # Cross-cutting security audit
 ├── report/           # Audit report generation
 └── ontology/         # Domain correctness rules (Phase C)
