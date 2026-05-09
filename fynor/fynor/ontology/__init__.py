@@ -1,1 +1,0 @@
-"""Domain ontology — correctness rules for FinTech and healthcare AI agents"""

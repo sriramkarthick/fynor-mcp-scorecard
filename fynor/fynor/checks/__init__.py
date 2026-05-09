@@ -1,1 +1,0 @@
-"""Fynor checks — one module per interface type"""

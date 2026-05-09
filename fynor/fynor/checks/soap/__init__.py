@@ -1,1 +1,0 @@
-"""SOAP service agent-readiness checks"""

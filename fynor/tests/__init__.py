@@ -1,1 +1,0 @@
-"""Fynor test suite"""
