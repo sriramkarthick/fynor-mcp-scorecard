@@ -2,8 +2,7 @@
 
 ## What this project is
 AI agent reliability platform. Checks every REST, GraphQL, gRPC, WebSocket, SOAP,
-MCP, and CLI interface for agent-specific failure modes. Phase B of a 3-phase
-$80M acquisition exit. Built in Python 3.11.
+MCP, and CLI interface for agent-specific failure modes. Built in Python.
 
 ## Current phase
 Phase B v0.1 — building MCP check engine (ships Month 6 = November 2026)
