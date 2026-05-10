@@ -2,7 +2,7 @@
 
 ## What this project is
 AI agent reliability platform. Checks every REST, GraphQL, gRPC, WebSocket, SOAP,
-MCP, and CLI interface for agent-specific failure modes. Built in Python.
+MCP and CLI interface for agent-specific failure modes. Built in Python.
 
 ## Current phase
 Phase B v0.1 — building MCP check engine (ships Month 6 = November 2026)
@@ -17,7 +17,7 @@ Phase B v0.1 — building MCP check engine (ships Month 6 = November 2026)
 
 ## Score aggregator weights (locked — ADR-02, do not change without new ADR)
 Security checks:     30% of total score
-Reliability checks:  40% of total score
+Reliability checks:  40% of the total score
 Performance checks:  30% of total score
 Grade: 90-100=A, 75-89=B, 60-74=C, 45-59=D, 0-44=F
 CRITICAL security failure -> hard cap at grade D regardless of other scores
@@ -48,6 +48,5 @@ CRITICAL security failure -> hard cap at grade D regardless of other scores
 | Review check quality    | .claude/prompts/review-check.md |
 
 ## Repository
-GitHub: https://github.com/sriramkarthick/fynor-mcp-scorecard
+GitHub: https://github.com/sriramkarthick/fynor-reliability-platform
 PyPI:   pip install fynor
-Site:   scorecard.fynor.dev (Month 9)
