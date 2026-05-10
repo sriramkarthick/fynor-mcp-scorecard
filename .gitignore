@@ -9,3 +9,8 @@ build/
 *.egg-info/
 .pytest_cache/
 .coverage
+
+# Claude Code context and prompt files — private strategy, never commit to public repo
+# Stored in private repo: github.com/sriramkarthick/fynor-internal
+.claude/context/
+.claude/prompts/
