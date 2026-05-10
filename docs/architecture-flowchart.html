@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fynor Agent Reliability Platform — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.5px;
+  }
+  .header .sub {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #64748b;
+    letter-spacing: 0.5px;
+  }
+  .header .tag {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 4px 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 16px;
+    padding-left: 4px;
+  }
+
+  /* ── PHASE TIMELINE ── */
+  .phase-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+  .phase-card {
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid;
+    position: relative;
+    overflow: hidden;
+  }
+  .phase-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .phase-a { background: #0f1f0f; border-color: #166534; }
+  .phase-a::before { background: #22c55e; }
+  .phase-b { background: #0f1620; border-color: #1e40af; }
+  .phase-b::before { background: #3b82f6; }
+  .phase-c { background: #1a0f20; border-color: #7e22ce; }
+  .phase-c::before { background: #a855f7; }
+  .phase-d { background: #1a1200; border-color: #92400e; }
+  .phase-d::before { background: #f59e0b; }
+
+  .phase-card .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .phase-a .label { color: #22c55e; }
+  .phase-b .label { color: #3b82f6; }
+  .phase-c .label { color: #a855f7; }
+  .phase-d .label { color: #f59e0b; }
+
+  .phase-card .title { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+  .phase-card .timeline { font-size: 11px; color: #64748b; margin-bottom: 10px; }
+  .phase-card .items { list-style: none; }
+  .phase-card .items li {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 2px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .phase-card .items li::before { content: '→'; color: #475569; flex-shrink: 0; }
+  .phase-card .revenue {
+    margin-top: 10px;
+    padding: 6px 8px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #cbd5e1;
+  }
+
+  /* ── THREE TIERS ── */
+  .tiers-wrapper {
+    position: relative;
+    margin-bottom: 48px;
+  }
+
+  .tier {
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 2px;
+    border: 1px solid;
+    position: relative;
+  }
+  .tier-1 { background: #0d1117; border-color: #1e293b; }
+  .tier-2 { background: #0d1520; border-color: #1e3a5f; }
+  .tier-3 { background: #130d20; border-color: #3b1a5f; }
+
+  .tier-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .tier-badge {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .tier-1 .tier-badge { background: #1e293b; color: #94a3b8; }
+  .tier-2 .tier-badge { background: #1e3a5f; color: #60a5fa; }
+  .tier-3 .tier-badge { background: #3b1a5f; color: #c084fc; }
+
+  .tier-title { font-size: 15px; font-weight: 600; color: #f1f5f9; }
+  .tier-subtitle { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+  .tier-phase {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .tier-1 .tier-phase { background: #1e293b; color: #64748b; }
+  .tier-2 .tier-phase { background: #1e3a5f; color: #60a5fa; }
+  .tier-3 .tier-phase { background: #3b1a5f; color: #c084fc; }
+
+  /* ── TIER 1 — INTERFACE BOXES ── */
+  .interface-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+  }
+  .interface-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .interface-box:hover { border-color: #60a5fa; }
+  .interface-box .icon { font-size: 20px; margin-bottom: 6px; }
+  .interface-box .name { font-size: 11px; font-weight: 600; color: #cbd5e1; }
+  .interface-box .month { font-size: 10px; color: #475569; margin-top: 2px; }
+  .interface-box.highlight { border-color: #3b82f6; background: #0f2040; }
+  .interface-box.highlight .name { color: #60a5fa; }
+
+  /* ── TIER 2 — CHECK ENGINE ── */
+  .engine-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .engine-left { }
+  .engine-right { }
+
+  .check-engine-box {
+    background: #0a1628;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .check-engine-box .box-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #60a5fa;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .check-engine-box .box-title::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+  }
+
+  .checker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .checker-chip {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 4px;
+    text-align: center;
+  }
+  .checker-chip .ctype { font-size: 10px; font-weight: 700; color: #94a3b8; }
+  .checker-chip .ccount { font-size: 9px; color: #475569; }
+
+  .security-bar {
+    background: #1a0a0a;
+    border: 1px solid #7f1d1d;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .security-bar .slabel { font-size: 10px; font-weight: 700; color: #f87171; }
+  .security-bar .sdesc { font-size: 10px; color: #6b7280; }
+
+  .score-box {
+    background: #0a1628;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .score-box .box-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #60a5fa;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .score-box .box-title::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+  }
+
+  .score-bar-row {
+    margin-bottom: 8px;
+  }
+  .score-bar-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .score-bar-label span:first-child { font-size: 11px; color: #94a3b8; }
+  .score-bar-label span:last-child { font-size: 11px; font-weight: 700; color: #f1f5f9; }
+  .score-bar-track {
+    height: 6px;
+    background: #1e293b;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .score-bar-fill { height: 100%; border-radius: 3px; }
+  .fill-sec { background: #ef4444; width: 30%; }
+  .fill-rel { background: #3b82f6; width: 40%; }
+  .fill-perf { background: #22c55e; width: 30%; }
+
+  .grade-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .grade-chip {
+    border-radius: 6px;
+    padding: 6px 4px;
+    text-align: center;
+    border: 1px solid;
+  }
+  .grade-A { background: #052e16; border-color: #166534; }
+  .grade-B { background: #0c1a3a; border-color: #1e40af; }
+  .grade-C { background: #1a1200; border-color: #92400e; }
+  .grade-D { background: #1a0a00; border-color: #7c2d12; }
+  .grade-F { background: #200a0a; border-color: #991b1b; }
+  .grade-chip .gletter { font-size: 16px; font-weight: 800; }
+  .grade-A .gletter { color: #22c55e; }
+  .grade-B .gletter { color: #3b82f6; }
+  .grade-C .gletter { color: #f59e0b; }
+  .grade-D .gletter { color: #f97316; }
+  .grade-F .gletter { color: #ef4444; }
+  .grade-chip .grange { font-size: 9px; color: #64748b; }
+
+  .report-box {
+    background: #0a1628;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .report-box .box-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #60a5fa;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .report-box .box-title::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+  }
+  .report-formats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .report-format {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+  .report-format .rf-icon { font-size: 16px; margin-bottom: 3px; }
+
+  /* ── TIER 3 — INTELLIGENCE ── */
+  .intel-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .intel-box {
+    background: #100820;
+    border: 1px solid #3b1a5f;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .intel-box .ibox-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #c084fc;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .intel-box .ibox-title::before {
+    content: '';
+    display: block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #a855f7;
+  }
+  .intel-item {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 4px 0;
+    border-bottom: 1px solid #1e1030;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .intel-item:last-child { border-bottom: none; }
+  .intel-item .tag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tag-crit { background: #7f1d1d; color: #fca5a5; }
+  .tag-high { background: #7c2d12; color: #fdba74; }
+  .tag-rule { background: #1e1b4b; color: #a5b4fc; }
+  .tag-db   { background: #052e16; color: #86efac; }
+
+  /* ── SELF LEARNING LOOP ── */
+  .loop-section { margin-bottom: 48px; }
+  .loop-container {
+    background: #0d0d1a;
+    border: 1px solid #1e1b4b;
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .loop-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    align-items: center;
+  }
+  .loop-step {
+    text-align: center;
+    padding: 0 8px;
+    position: relative;
+  }
+  .loop-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #334155;
+    font-size: 18px;
+  }
+  .loop-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin: 0 auto 8px;
+  }
+  .loop-step .lstep-title { font-size: 11px; font-weight: 600; color: #cbd5e1; }
+  .loop-step .lstep-desc { font-size: 10px; color: #475569; margin-top: 2px; }
+
+  .loop-b .loop-icon { background: #0f2040; }
+  .loop-c .loop-icon { background: #1a0f30; }
+
+  .loop-divider {
+    text-align: center;
+    margin: 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #334155;
+    font-size: 11px;
+  }
+  .loop-divider::before, .loop-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #1e293b;
+  }
+
+  /* ── FAILURE CODES ── */
+  .failure-section { margin-bottom: 48px; }
+  .failure-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .failure-card {
+    background: #0d1117;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .failure-card .fcard-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .fcard-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .failure-code-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid #0f172a;
+  }
+  .failure-code-item:last-child { border-bottom: none; }
+  .fcode {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: #94a3b8;
+    flex: 1;
+  }
+  .fsev {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .sev-C { background: #7f1d1d; color: #fca5a5; }
+  .sev-H { background: #431407; color: #fdba74; }
+  .sev-M { background: #1c1917; color: #d6d3d1; }
+  .sev-L { background: #0f172a; color: #64748b; }
+
+  /* ── MCP META PLAY ── */
+  .meta-section { margin-bottom: 48px; }
+  .meta-container {
+    background: #0a0f1a;
+    border: 1px solid #1e3a5f;
+    border-radius: 16px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .meta-side {
+    background: #0d1520;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .meta-side .ms-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .meta-left .ms-title { color: #94a3b8; }
+  .meta-right .ms-title { color: #60a5fa; }
+
+  .meta-center {
+    text-align: center;
+    padding: 16px;
+  }
+  .meta-center .fynor-badge {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, #1e3a5f, #3b1a5f);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 10px;
+    border: 1px solid #3b82f6;
+  }
+  .meta-center .fc-name { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+  .meta-center .fc-sub { font-size: 10px; color: #475569; margin-top: 2px; }
+
+  .meta-arrows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .arrow-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #475569;
+  }
+  .arrow-line .a-icon { font-size: 12px; }
+
+  .tool-list { list-style: none; }
+  .tool-list li {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 3px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid #0f172a;
+  }
+  .tool-list li:last-child { border-bottom: none; }
+  .tool-list li::before { content: '•'; color: #3b82f6; }
+
+  /* ── EXIT TARGET ── */
+  .exit-section { margin-bottom: 48px; }
+  .exit-container {
+    background: linear-gradient(135deg, #0a0f0a, #0f0a1a);
+    border: 1px solid #166534;
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .exit-header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .exit-header .amount {
+    font-size: 48px;
+    font-weight: 800;
+    color: #22c55e;
+    letter-spacing: -2px;
+  }
+  .exit-header .amountsub {
+    font-size: 14px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .exit-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .exit-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .exit-card .eyear { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+  .exit-card .earr { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .exit-card .eclients { font-size: 10px; color: #475569; margin-top: 2px; }
+  .exit-math {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: rgba(34,197,94,0.05);
+    border: 1px solid #166534;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 13px;
+    color: #86efac;
+  }
+
+  /* ── CONNECTOR ARROWS ── */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    color: #334155;
+    font-size: 20px;
+    position: relative;
+  }
+  .connector::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #1e293b;
+  }
+  .connector span {
+    background: #0a0a0f;
+    padding: 0 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding-top: 32px;
+    border-top: 1px solid #1e293b;
+    font-size: 12px;
+    color: #334155;
+  }
+  .footer a { color: #3b82f6; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>Fynor Agent Reliability Platform</h1>
+  <div class="sub">Complete System Architecture — $80M Acquisition Blueprint</div>
+  <span class="tag">Phase B v0.1 → Phase C → Exit 2033–2036</span>
+</div>
+
+<!-- PHASE TIMELINE -->
+<div class="section-label">Build Phases</div>
+<div class="phase-row">
+
+  <div class="phase-card phase-a">
+    <div class="label">Phase A</div>
+    <div class="title">Domain Research Engine</div>
+    <div class="timeline">Months 0–12 · May 2026 → May 2027</div>
+    <ul class="items">
+      <li>Manual AI infrastructure consulting</li>
+      <li>Target: MCP-deploying companies only</li>
+      <li>FinTech, healthcare, developer tools</li>
+      <li>Automation spine + 3 AI agent junctions</li>
+      <li>Every client → domain ontology data</li>
+    </ul>
+    <div class="revenue">Income: $0 → $6K/month · Funds Phase C R&D</div>
+  </div>
+
+  <div class="phase-card phase-b">
+    <div class="label">Phase B</div>
+    <div class="title">Agent Reliability Platform</div>
+    <div class="timeline">Months 6–24 · Nov 2026 → May 2028</div>
+    <ul class="items">
+      <li>Open source (MIT) · pip install fynor</li>
+      <li>MCP wedge → all 7 interface types</li>
+      <li>Hosted: scorecard.fynor.dev</li>
+      <li>v0.1 (8 checks) → v1.0 (40 checks)</li>
+      <li>"Request full audit" → Phase C pipeline</li>
+    </ul>
+    <div class="revenue">Revenue: $0 → $5K/month · Target: 2K GitHub stars</div>
+  </div>
+
+  <div class="phase-card phase-c">
+    <div class="label">Phase C</div>
+    <div class="title">AI Reliability Audit Platform</div>
+    <div class="timeline">Month 18+ · 2027 → 2033</div>
+    <ul class="items">
+      <li>Domain ontology engine (FinTech first)</li>
+      <li>Ground truth database — primary moat</li>
+      <li>Enterprise SaaS: $50K–$300K/year</li>
+      <li>Princeton AI Reliability Definition</li>
+      <li>Four-component audit methodology</li>
+    </ul>
+    <div class="revenue">ARR: $500K (2029) → $15–20M (2033) · Exit window</div>
+  </div>
+
+  <div class="phase-card phase-d">
+    <div class="label">Phase D</div>
+    <div class="title">Ecosystem Expansion</div>
+    <div class="timeline">2030+ · Post-exit potential</div>
+    <ul class="items">
+      <li>Domain ontology marketplace</li>
+      <li>White-label reliability reports</li>
+      <li>SDK licensing for CI/CD</li>
+      <li>AWS Inspector for agents tile</li>
+      <li>Build ONLY from Phase C demand</li>
+    </ul>
+    <div class="revenue">Potential: $120M+ exit vs $75M · Not designed now</div>
+  </div>
+
+</div>
+
+<!-- THREE TIERS -->
+<div class="section-label">System Architecture — Three Tiers</div>
+<div class="tiers-wrapper">
+
+  <!-- TIER 1 -->
+  <div class="tier tier-1">
+    <div class="tier-header">
+      <div class="tier-badge">T1</div>
+      <div>
+        <div class="tier-title">Interface Layer</div>
+        <div class="tier-subtitle">How developers and AI agents talk to Fynor</div>
+      </div>
+      <span class="tier-phase">PHASE B · Month 6+</span>
+    </div>
+    <div class="interface-row">
+      <div class="interface-box highlight">
+        <div class="icon">⌨️</div>
+        <div class="name">CLI</div>
+        <div class="month">Month 6</div>
+      </div>
+      <div class="interface-box">
+        <div class="icon">🐍</div>
+        <div class="name">Python SDK</div>
+        <div class="month">Month 7</div>
+      </div>
+      <div class="interface-box">
+        <div class="icon">⚙️</div>
+        <div class="name">GitHub Action</div>
+        <div class="month">Month 8</div>
+      </div>
+      <div class="interface-box">
+        <div class="icon">🌐</div>
+        <div class="name">REST API</div>
+        <div class="month">Month 9</div>
+      </div>
+      <div class="interface-box highlight">
+        <div class="icon">🤖</div>
+        <div class="name">MCP Server</div>
+        <div class="month">Month 12</div>
+      </div>
+      <div class="interface-box">
+        <div class="icon">🐳</div>
+        <div class="name">Docker</div>
+        <div class="month">Month 15</div>
+      </div>
+      <div class="interface-box">
+        <div class="icon">📦</div>
+        <div class="name">npm (npx)</div>
+        <div class="month">Month 15</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><span>↓ AuditRequest(url, type, domain)</span></div>
+
+  <!-- TIER 2 -->
+  <div class="tier tier-2">
+    <div class="tier-header">
+      <div class="tier-badge">T2</div>
+      <div>
+        <div class="tier-title">Platform Layer — Check Engine</div>
+        <div class="tier-subtitle">Did the interface behave correctly under agent conditions?</div>
+      </div>
+      <span class="tier-phase">PHASE B · v0.1 → v1.0</span>
+    </div>
+    <div class="engine-layout">
+      <div class="engine-left">
+        <div class="check-engine-box">
+          <div class="box-title">Check Engine — 40 Checks Across 8 Types</div>
+          <div class="checker-grid">
+            <div class="checker-chip"><div class="ctype">MCP</div><div class="ccount">8 checks</div></div>
+            <div class="checker-chip"><div class="ctype">REST</div><div class="ccount">6 checks</div></div>
+            <div class="checker-chip"><div class="ctype">GraphQL</div><div class="ccount">4 checks</div></div>
+            <div class="checker-chip"><div class="ctype">gRPC</div><div class="ccount">4 checks</div></div>
+            <div class="checker-chip"><div class="ctype">WebSocket</div><div class="ccount">4 checks</div></div>
+            <div class="checker-chip"><div class="ctype">SOAP</div><div class="ccount">3 checks</div></div>
+            <div class="checker-chip"><div class="ctype">CLI</div><div class="ccount">5 checks</div></div>
+            <div class="checker-chip" style="border-color:#7f1d1d;background:#1a0808;"><div class="ctype" style="color:#f87171;">Security</div><div class="ccount">6 checks</div></div>
+          </div>
+          <div class="security-bar">
+            <span class="slabel">🔒 Security runs cross-cutting on ALL types</span>
+            <span class="sdesc">CRITICAL → grade D cap</span>
+          </div>
+        </div>
+        <div class="report-box">
+          <div class="box-title">Report Generator</div>
+          <div class="report-formats">
+            <div class="report-format"><div class="rf-icon">🖥️</div>Terminal (rich)</div>
+            <div class="report-format"><div class="rf-icon">📄</div>JSON</div>
+            <div class="report-format"><div class="rf-icon">🔗</div>Shareable URL</div>
+            <div class="report-format"><div class="rf-icon">📋</div>PDF (Phase C)</div>
+          </div>
+        </div>
+      </div>
+      <div class="engine-right">
+        <div class="score-box">
+          <div class="box-title">Score Aggregator — ADR-02</div>
+          <div class="score-bar-row">
+            <div class="score-bar-label"><span>🔴 Security</span><span>30%</span></div>
+            <div class="score-bar-track"><div class="score-bar-fill fill-sec"></div></div>
+          </div>
+          <div class="score-bar-row">
+            <div class="score-bar-label"><span>🔵 Reliability</span><span>40%</span></div>
+            <div class="score-bar-track"><div class="score-bar-fill fill-rel"></div></div>
+          </div>
+          <div class="score-bar-row">
+            <div class="score-bar-label"><span>🟢 Performance</span><span>30%</span></div>
+            <div class="score-bar-track"><div class="score-bar-fill fill-perf"></div></div>
+          </div>
+          <div style="margin-top:10px;padding:8px;background:#0a1628;border-radius:6px;font-size:10px;color:#64748b;">
+            Severity multipliers: CRITICAL=0.0 · HIGH=0.4 · MEDIUM=0.7 · LOW=1.0
+          </div>
+          <div class="grade-row">
+            <div class="grade-chip grade-A"><div class="gletter">A</div><div class="grange">90–100</div></div>
+            <div class="grade-chip grade-B"><div class="gletter">B</div><div class="grange">75–89</div></div>
+            <div class="grade-chip grade-C"><div class="gletter">C</div><div class="grange">60–74</div></div>
+            <div class="grade-chip grade-D"><div class="gletter">D</div><div class="grange">45–59</div></div>
+            <div class="grade-chip grade-F"><div class="gletter">F</div><div class="grange">0–44</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><span>↓ AuditResult(score, grade, results[], report_url)</span></div>
+
+  <!-- TIER 3 -->
+  <div class="tier tier-3">
+    <div class="tier-header">
+      <div class="tier-badge">T3</div>
+      <div>
+        <div class="tier-title">Intelligence Layer</div>
+        <div class="tier-subtitle">Was the agent CORRECT for this domain? — The Unsolved Layer</div>
+      </div>
+      <span class="tier-phase">PHASE C · 2027+</span>
+    </div>
+    <div class="intel-layout">
+      <div class="intel-box">
+        <div class="ibox-title">Domain Ontology Engine</div>
+        <div class="intel-item"><span class="tag tag-rule">FINTECH</span>Flag transactions &gt;$50K threshold</div>
+        <div class="intel-item"><span class="tag tag-rule">FINTECH</span>No trade without counterparty check</div>
+        <div class="intel-item"><span class="tag tag-rule">HEALTH</span>Never surface patient MRN in errors</div>
+        <div class="intel-item"><span class="tag tag-rule">HEALTH</span>Clinical AI must cite evidence source</div>
+        <div style="margin-top:10px;font-size:10px;color:#475569;">
+          Private Git repo · JSON rules · versioned per commit<br>
+          Built from: FINRA/SEC/HIPAA + domain expert interviews
+        </div>
+      </div>
+      <div class="intel-box">
+        <div class="ibox-title">Ground Truth Database</div>
+        <div class="intel-item"><span class="tag tag-db">MOAT</span>Labeled agent decisions by domain experts</div>
+        <div class="intel-item"><span class="tag tag-db">MOAT</span>verdict: CORRECT / INCORRECT + reason</div>
+        <div class="intel-item"><span class="tag tag-db">MOAT</span>pgvector similarity search on labels</div>
+        <div class="intel-item"><span class="tag tag-db">MOAT</span>Auto-suggest verdict for similar cases</div>
+        <div style="margin-top:10px;font-size:10px;color:#475569;">
+          Year 3: 500 records/month · Year 5: 2,500/month<br>
+          Defensible at 10,000+ records (late 2030)
+        </div>
+      </div>
+      <div class="intel-box">
+        <div class="ibox-title">Human Sampling Interface</div>
+        <div class="intel-item"><span class="tag tag-crit">GATE</span>Domain expert receives flagged decision</div>
+        <div class="intel-item"><span class="tag tag-crit">GATE</span>Reviews: input + agent_decision + rule</div>
+        <div class="intel-item"><span class="tag tag-high">LOOP</span>Verdict → ground_truth_labels record</div>
+        <div class="intel-item"><span class="tag tag-high">LOOP</span>pgvector embedding stored → index updated</div>
+        <div style="margin-top:10px;font-size:10px;color:#475569;">
+          Review time: 10 min → 2 min (as DB grows)<br>
+          Pipeline decomp: verified zones vs AI judgment zones
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SELF LEARNING LOOP -->
+<div class="loop-section">
+  <div class="section-label">Self-Learning Loops</div>
+  <div class="loop-container">
+    <div style="font-size:11px;font-weight:700;color:#3b82f6;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">Phase B Loop — Aggregate Pattern Learning</div>
+    <div class="loop-grid">
+      <div class="loop-step loop-b">
+        <div class="loop-icon" style="background:#0f2040;">📊</div>
+        <div class="lstep-title">Audit Runs</div>
+        <div class="lstep-desc">results → PostgreSQL</div>
+      </div>
+      <div class="loop-step loop-b">
+        <div class="loop-icon" style="background:#0f2040;">⚙️</div>
+        <div class="lstep-title">Weekly Batch</div>
+        <div class="lstep-desc">failure_patterns table</div>
+      </div>
+      <div class="loop-step loop-b">
+        <div class="loop-icon" style="background:#0f2040;">💡</div>
+        <div class="lstep-title">Pattern Found</div>
+        <div class="lstep-desc">"87% fail rate limit"</div>
+      </div>
+      <div class="loop-step loop-b">
+        <div class="loop-icon" style="background:#0f2040;">✍️</div>
+        <div class="lstep-title">Published</div>
+        <div class="lstep-desc">README + HN + blog</div>
+      </div>
+      <div class="loop-step loop-b">
+        <div class="loop-icon" style="background:#0f2040;">📈</div>
+        <div class="lstep-title">More Users</div>
+        <div class="lstep-desc">organic traffic</div>
+      </div>
+      <div class="loop-step loop-b">
+        <div class="loop-icon" style="background:#162940;">🔄</div>
+        <div class="lstep-title">Better Patterns</div>
+        <div class="lstep-desc">flywheel compounds</div>
+      </div>
+    </div>
+
+    <div class="loop-divider">Phase C Loop — Domain Intelligence Learning</div>
+
+    <div class="loop-grid">
+      <div class="loop-step loop-c">
+        <div class="loop-icon" style="background:#1a0f30;">🚨</div>
+        <div class="lstep-title">Flag Raised</div>
+        <div class="lstep-desc">rule violation detected</div>
+      </div>
+      <div class="loop-step loop-c">
+        <div class="loop-icon" style="background:#1a0f30;">👤</div>
+        <div class="lstep-title">Expert Reviews</div>
+        <div class="lstep-desc">decision + rule</div>
+      </div>
+      <div class="loop-step loop-c">
+        <div class="loop-icon" style="background:#1a0f30;">✅</div>
+        <div class="lstep-title">Verdict Stored</div>
+        <div class="lstep-desc">ground_truth_labels</div>
+      </div>
+      <div class="loop-step loop-c">
+        <div class="loop-icon" style="background:#1a0f30;">🧠</div>
+        <div class="lstep-title">pgvector Match</div>
+        <div class="lstep-desc">similar case found</div>
+      </div>
+      <div class="loop-step loop-c">
+        <div class="loop-icon" style="background:#1a0f30;">⚡</div>
+        <div class="lstep-title">Auto-Suggest</div>
+        <div class="lstep-desc">review time −60%</div>
+      </div>
+      <div class="loop-step loop-c">
+        <div class="loop-icon" style="background:#2a0f40;">🏰</div>
+        <div class="lstep-title">Moat Deepens</div>
+        <div class="lstep-desc">10K+ labels = defensible</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAILURE CODE TAXONOMY -->
+<div class="failure-section">
+  <div class="section-label">Failure Code Taxonomy — All 40 Checks</div>
+  <div class="failure-grid">
+    <div class="failure-card">
+      <div class="fcard-title"><span class="fcard-dot" style="background:#3b82f6;"></span>MCP Checks — 8 (v0.1)</div>
+      <div class="failure-code-item"><span class="fcode">MCP_001_HIGH_LATENCY</span><span class="fsev sev-M">MED</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_002_HIGH_ERROR_RATE</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_003_SCHEMA_DRIFT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_004_NO_RETRY</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_005_AUTH_LEAKED</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_006_RATE_LIMIT_ABSENT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_007_TIMEOUT_HANG</span><span class="fsev sev-M">MED</span></div>
+      <div class="failure-code-item"><span class="fcode">MCP_008_LOG_INCOMPLETE</span><span class="fsev sev-L">LOW</span></div>
+    </div>
+    <div class="failure-card">
+      <div class="fcard-title"><span class="fcard-dot" style="background:#22c55e;"></span>REST + Security (v0.2)</div>
+      <div class="failure-code-item"><span class="fcode">REST_001_SCHEMA_UNSTABLE</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">REST_002_NO_BURST_LIMIT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">REST_004_NON_IDEMPOTENT</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">REST_006_AUTH_EXPIRY</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">SEC_001_CRED_IN_HEADERS</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">SEC_002_SECRET_IN_URL</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">SEC_003_NO_TLS</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">SEC_006_CORS_WILDCARD</span><span class="fsev sev-M">MED</span></div>
+    </div>
+    <div class="failure-card">
+      <div class="fcard-title"><span class="fcard-dot" style="background:#f59e0b;"></span>GraphQL + WebSocket (v0.3)</div>
+      <div class="failure-code-item"><span class="fcode">GQL_001_SCHEMA_DRIFT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">GQL_002_NO_DEPTH_LIMIT</span><span class="fsev sev-M">MED</span></div>
+      <div class="failure-code-item"><span class="fcode">GQL_003_N_PLUS_ONE</span><span class="fsev sev-M">MED</span></div>
+      <div class="failure-code-item"><span class="fcode">GQL_004_SUBSCRIPTION_SILENT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">WSS_001_NO_RECONNECT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">WSS_002_NO_HEARTBEAT</span><span class="fsev sev-M">MED</span></div>
+      <div class="failure-code-item"><span class="fcode">WSS_003_ORDER_NOT_GUARANTEED</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">WSS_004_NO_BACKPRESSURE</span><span class="fsev sev-M">MED</span></div>
+    </div>
+    <div class="failure-card">
+      <div class="fcard-title"><span class="fcard-dot" style="background:#a855f7;"></span>gRPC + SOAP + CLI (v0.4–0.5)</div>
+      <div class="failure-code-item"><span class="fcode">GRPC_001_PROTO_BREAKING</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">GRPC_003_DEADLINE_NOT_FWD</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">GRPC_004_NO_RETRY</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">SOAP_001_WSDL_DRIFT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">SOAP_003_WS_SECURITY</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">CLI_001_EXIT_CODE_WRONG</span><span class="fsev sev-C">CRIT</span></div>
+      <div class="failure-code-item"><span class="fcode">CLI_002_NO_JSON_OUTPUT</span><span class="fsev sev-H">HIGH</span></div>
+      <div class="failure-code-item"><span class="fcode">CLI_003_NONDETERMINISTIC</span><span class="fsev sev-M">MED</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MCP META PLAY -->
+<div class="meta-section">
+  <div class="section-label">The MCP Meta-Play — Fynor Audits MCP and IS an MCP Server (Month 12)</div>
+  <div class="meta-container">
+
+    <div class="meta-side meta-left">
+      <div class="ms-title">AI Agents That Can Call Fynor</div>
+      <ul class="tool-list">
+        <li>Claude (Anthropic)</li>
+        <li>LangChain agents</li>
+        <li>CrewAI agents</li>
+        <li>Any MCP-compatible agent</li>
+        <li>CI/CD pipelines</li>
+        <li>Custom enterprise agents</li>
+      </ul>
+      <div style="margin-top:12px;font-size:10px;color:#475569;font-style:italic;">
+        Every AI agent deployment = potential Fynor user.<br>
+        Distribution multiplier built into the protocol.
+      </div>
+    </div>
+
+    <div class="meta-center">
+      <div class="fynor-badge">🛡️</div>
+      <div class="fc-name">Fynor MCP Server</div>
+      <div class="fc-sub">Month 12 · polished, not rushed</div>
+      <div class="meta-arrows">
+        <div class="arrow-line"><span class="a-icon">🔧</span> run_audit(url, type, domain)</div>
+        <div class="arrow-line"><span class="a-icon">💊</span> get_remediation(failure_code)</div>
+        <div class="arrow-line"><span class="a-icon">🔀</span> compare_audits(before, after)</div>
+        <div class="arrow-line"><span class="a-icon">📊</span> get_audit_status(audit_id)</div>
+        <div class="arrow-line"><span class="a-icon">📋</span> list_failure_patterns(domain)</div>
+      </div>
+    </div>
+
+    <div class="meta-side meta-right">
+      <div class="ms-title">What Fynor Audits</div>
+      <ul class="tool-list">
+        <li>MCP servers (8 checks)</li>
+        <li>REST APIs (6 checks)</li>
+        <li>GraphQL endpoints (4 checks)</li>
+        <li>gRPC services (4 checks)</li>
+        <li>WebSocket streams (4 checks)</li>
+        <li>SOAP services (3 checks)</li>
+        <li>CLI tools (5 checks)</li>
+        <li>Security cross-cutting (6 checks)</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- EXIT TARGET -->
+<div class="exit-section">
+  <div class="section-label">Exit Target — $80M Acquisition</div>
+  <div class="exit-container">
+    <div class="exit-header">
+      <div class="amount">$80M+</div>
+      <div class="amountsub">Acquisition by AWS, Datadog, HashiCorp-category, or cloud-native AI platform · 2033–2036</div>
+    </div>
+    <div class="exit-grid">
+      <div class="exit-card">
+        <div class="eyear">Year 3 · 2029</div>
+        <div class="earr">$500K ARR</div>
+        <div class="eclients">10 clients · $50K avg</div>
+      </div>
+      <div class="exit-card">
+        <div class="eyear">Year 4 · 2030</div>
+        <div class="earr">$2M ARR</div>
+        <div class="eclients">25 clients · $80K avg</div>
+      </div>
+      <div class="exit-card">
+        <div class="eyear">Year 6 · 2032</div>
+        <div class="earr">$10M ARR</div>
+        <div class="eclients">80 clients · acquirer talks begin</div>
+      </div>
+      <div class="exit-card" style="border-color:#166534;background:rgba(34,197,94,0.03);">
+        <div class="eyear">Year 7 · 2033</div>
+        <div class="earr" style="color:#22c55e;">$15–20M ARR</div>
+        <div class="eclients">100–120 clients · EXIT WINDOW</div>
+      </div>
+    </div>
+    <div class="exit-math">
+      $15M ARR × 5x = $75M &nbsp;·&nbsp; $20M ARR × 4x = $80M &nbsp;·&nbsp; Both hit the target
+      &nbsp;&nbsp;|&nbsp;&nbsp;
+      Acquirer buys: Ground Truth Database + Methodology + Customer Contracts
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <a href="https://github.com/sriramkarthick/fynor-mcp-scorecard">github.com/sriramkarthick/fynor-mcp-scorecard</a>
+  &nbsp;·&nbsp; Built by Sriram Karthick &nbsp;·&nbsp; Fynor Technologies
+</div>
+
+</body>
+</html>
