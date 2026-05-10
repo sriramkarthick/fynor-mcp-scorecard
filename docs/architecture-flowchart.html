@@ -1152,6 +1152,312 @@
   </div>
 </div>
 
+<!-- TECH STACK -->
+<div style="margin-bottom:48px">
+  <div class="section-label">Technology Stack — Every Layer, Every Decision</div>
+
+  <!-- ROW 1: Protocol Libraries + CLI/Output -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+
+    <!-- Protocol Libraries -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#58a6ff;text-transform:uppercase;margin-bottom:14px">Protocol Libraries — One Per Interface</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">httpx</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">REST + MCP</div>
+          <div style="font-size:10px;color:#3fb950;margin-top:4px">async-first · NEVER requests</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">gql</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">GraphQL</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:4px">introspection · type-safe</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">grpcio + protobuf</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">gRPC</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:4px">official Google lib</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">websockets</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">WebSocket</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:4px">ping/pong · reconnect</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">zeep</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">SOAP</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:4px">WSDL parsing · fault envelopes</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">mcp SDK</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">MCP protocol</div>
+          <div style="font-size:10px;color:#f59e0b;margin-top:4px">official Anthropic SDK</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px;grid-column:span 2">
+          <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">subprocess + pty</div>
+          <div style="font-size:11px;color:#8b949e;margin-top:3px">CLI Tools — runs any binary, captures exit codes + stdout</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLI + Backend Framework -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px;flex:1">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#a78bfa;text-transform:uppercase;margin-bottom:14px">CLI + Output Framework</div>
+        <div style="display:flex;gap:8px">
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;flex:1;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:#e6edf3;font-family:monospace">click</div>
+            <div style="font-size:10px;color:#8b949e;margin-top:4px">CLI framework</div>
+            <div style="font-size:10px;color:#a78bfa;margin-top:3px">fynor run/audit/report</div>
+          </div>
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;flex:1;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:#e6edf3;font-family:monospace">rich</div>
+            <div style="font-size:10px;color:#8b949e;margin-top:4px">Terminal output</div>
+            <div style="font-size:10px;color:#3fb950;margin-top:3px">tables · progress · scores</div>
+          </div>
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;flex:1;text-align:center">
+            <div style="font-size:14px;font-weight:700;color:#8b949e;font-family:monospace">typer</div>
+            <div style="font-size:10px;color:#484f58;margin-top:4px">v1.0 upgrade</div>
+            <div style="font-size:10px;color:#484f58;margin-top:3px">if type-safe CLI needed</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px;flex:1">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#38bdf8;text-transform:uppercase;margin-bottom:14px">REST API Backend</div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="background:#0c2a3d;border:1px solid #0ea5e9;border-radius:8px;padding:14px 20px;text-align:center">
+            <div style="font-size:20px;font-weight:800;color:#38bdf8;font-family:monospace">FastAPI</div>
+            <div style="font-size:10px;color:#7dd3fc;margin-top:4px">0.111+ · Ships Month 9</div>
+          </div>
+          <div style="font-size:11px;color:#64748b;line-height:1.7">
+            ✦ NOT Flask — no async, no auto OpenAPI<br>
+            ✦ Auto-generates OpenAPI docs (enterprise demand)<br>
+            ✦ Native async same event loop as httpx<br>
+            ✦ Pydantic models = request validation
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Data Layer -->
+  <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#34d399;text-transform:uppercase;margin-bottom:14px">Data Layer</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
+      <div style="background:#0a1f15;border:1px solid #166534;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:#34d399;font-family:monospace">PostgreSQL 16</div>
+        <div style="font-size:10px;color:#6ee7b7;margin-top:4px">Primary DB</div>
+        <div style="font-size:10px;color:#6ee7b7">Ground truth moat</div>
+        <div style="font-size:10px;color:#f59e0b;margin-top:4px">NOT MySQL — pgvector only works here</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">SQLAlchemy 2.0</div>
+        <div style="font-size:10px;color:#8b949e;margin-top:4px">ORM</div>
+        <div style="font-size:10px;color:#8b949e">async support</div>
+      </div>
+      <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:#e6edf3;font-family:monospace">Alembic 1.13</div>
+        <div style="font-size:10px;color:#8b949e;margin-top:4px">Migrations</div>
+        <div style="font-size:10px;color:#8b949e">versioned · reversible</div>
+      </div>
+      <div style="background:#1a1200;border:1px solid #92400e;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;font-family:monospace">Redis 7</div>
+        <div style="font-size:10px;color:#fde68a;margin-top:4px">Cache + Sessions</div>
+        <div style="font-size:10px;color:#fde68a">last 24h results</div>
+      </div>
+      <div style="background:#0f1620;border:1px solid #1e40af;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:#60a5fa;font-family:monospace">pgvector 0.7</div>
+        <div style="font-size:10px;color:#93c5fd;margin-top:4px">Phase C</div>
+        <div style="font-size:10px;color:#93c5fd">similarity search</div>
+      </div>
+      <div style="background:#160d1f;border:1px solid #6b21a8;border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:700;color:#c084fc;font-family:monospace">Anthropic SDK</div>
+        <div style="font-size:10px;color:#d8b4fe;margin-top:4px">Phase C</div>
+        <div style="font-size:10px;color:#d8b4fe">embeddings + eval</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Phase B Hosting vs Phase C AWS -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+
+    <!-- Phase B Hosting -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#3b82f6;text-transform:uppercase;margin-bottom:6px">Phase B Hosting — $5-7/month Total</div>
+      <div style="font-size:10px;color:#22c55e;margin-bottom:14px">99% margin from first user · Revenue at 20 clients × $49 = $980/month</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#e2e8f0;flex-shrink:0"></div>
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;font-family:monospace;min-width:80px">Vercel</div>
+          <div style="font-size:11px;color:#64748b">Next.js frontend · Hobby tier · $0/month</div>
+          <div style="margin-left:auto;font-size:10px;color:#22c55e;font-weight:700">FREE</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;flex-shrink:0"></div>
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;font-family:monospace;min-width:80px">Railway</div>
+          <div style="font-size:11px;color:#64748b">FastAPI backend · zero-config deploy · NOT Heroku</div>
+          <div style="margin-left:auto;font-size:10px;color:#fbbf24;font-weight:700">$5-7/mo</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#3ecf8e;flex-shrink:0"></div>
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;font-family:monospace;min-width:80px">Supabase</div>
+          <div style="font-size:11px;color:#64748b">Managed PostgreSQL · RLS built-in · NOT Neon</div>
+          <div style="margin-left:auto;font-size:10px;color:#22c55e;font-weight:700">FREE</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#f38020;flex-shrink:0"></div>
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;font-family:monospace;min-width:80px">Cloudflare</div>
+          <div style="font-size:11px;color:#64748b">DNS + CDN · DDoS protection · fynor.dev</div>
+          <div style="margin-left:auto;font-size:10px;color:#22c55e;font-weight:700">FREE</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#6c47ff;flex-shrink:0"></div>
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;font-family:monospace;min-width:80px">Clerk</div>
+          <div style="font-size:11px;color:#64748b">Auth · GitHub OAuth · enterprise SSO at Phase C</div>
+          <div style="margin-left:auto;font-size:10px;color:#22c55e;font-weight:700">FREE</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#635bff;flex-shrink:0"></div>
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;font-family:monospace;min-width:80px">Stripe</div>
+          <div style="font-size:11px;color:#64748b">$49/month managed · $5K+ enterprise invoices</div>
+          <div style="margin-left:auto;font-size:10px;color:#94a3b8;font-weight:700">2.9%+$0.30</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase C AWS -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#f59e0b;text-transform:uppercase;margin-bottom:6px">Phase C Infrastructure — AWS (Migrate at First Enterprise Client)</div>
+      <div style="font-size:10px;color:#94a3b8;margin-bottom:14px">$200-800/month at 20 enterprise clients · All infra via Terraform (acquirer-ready)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="background:#1a130a;border:1px solid #92400e;border-radius:6px;padding:10px">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;font-family:monospace">ECS Fargate</div>
+          <div style="font-size:10px;color:#fde68a;margin-top:3px">API + check runner containers</div>
+          <div style="font-size:10px;color:#78716c">2 tasks min → scales to 10</div>
+        </div>
+        <div style="background:#1a130a;border:1px solid #92400e;border-radius:6px;padding:10px">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;font-family:monospace">RDS PostgreSQL</div>
+          <div style="font-size:10px;color:#fde68a;margin-top:3px">Ground truth DB</div>
+          <div style="font-size:10px;color:#78716c">Multi-AZ · encrypted · backups</div>
+        </div>
+        <div style="background:#1a130a;border:1px solid #92400e;border-radius:6px;padding:10px">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;font-family:monospace">ElastiCache Redis</div>
+          <div style="font-size:10px;color:#fde68a;margin-top:3px">Cache cluster</div>
+          <div style="font-size:10px;color:#78716c">cluster mode · &lt;1ms latency</div>
+        </div>
+        <div style="background:#1a130a;border:1px solid #92400e;border-radius:6px;padding:10px">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;font-family:monospace">S3</div>
+          <div style="font-size:10px;color:#fde68a;margin-top:3px">Reports + evidence</div>
+          <div style="font-size:10px;color:#78716c">versioned · encrypted</div>
+        </div>
+        <div style="background:#1a130a;border:1px solid #92400e;border-radius:6px;padding:10px">
+          <div style="font-size:12px;font-weight:700;color:#fbbf24;font-family:monospace">CloudFront</div>
+          <div style="font-size:10px;color:#fde68a;margin-top:3px">CDN for dashboard</div>
+          <div style="font-size:10px;color:#78716c">&lt;50ms global report load</div>
+        </div>
+        <div style="background:#1a1f0a;border:1px solid #4d7c0f;border-radius:6px;padding:10px">
+          <div style="font-size:12px;font-weight:700;color:#84cc16;font-family:monospace">Terraform</div>
+          <div style="font-size:10px;color:#bef264;margin-top:3px">ALL infra as code</div>
+          <div style="font-size:10px;color:#78716c">reproducible · acquirer audit</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Frontend + Distribution + CI/CD + Observability -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+
+    <!-- Frontend -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#e2e8f0;text-transform:uppercase;margin-bottom:14px">Frontend Stack</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:12px;font-weight:700;color:#61dafb">Next.js 14</span>
+          <span style="font-size:10px;color:#64748b;margin-left:8px">React framework</span>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:12px;font-weight:700;color:#38bdf8">Tailwind 3</span>
+          <span style="font-size:10px;color:#64748b;margin-left:8px">Styling</span>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:12px;font-weight:700;color:#22d3ee">Recharts</span>
+          <span style="font-size:10px;color:#64748b;margin-left:8px">Score trend charts</span>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:12px;font-weight:700;color:#a78bfa">Clerk</span>
+          <span style="font-size:10px;color:#64748b;margin-left:8px">GitHub OAuth</span>
+        </div>
+        <div style="font-size:10px;color:#475569;margin-top:4px;padding-left:4px">Ships Month 9</div>
+      </div>
+    </div>
+
+    <!-- Package Distribution -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#e2e8f0;text-transform:uppercase;margin-bottom:14px">Package Distribution</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="background:#0a1f15;border:1px solid #166534;border-radius:6px;padding:8px 10px">
+          <div style="font-family:monospace;font-size:11px;color:#3fb950">pip install fynor</div>
+          <div style="font-size:10px;color:#6ee7b7;margin-top:2px">PyPI · Month 6 · Primary channel</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <div style="font-family:monospace;font-size:11px;color:#e6edf3">uses: fynor/check@v1</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:2px">GitHub Action · Month 8 · CI/CD market</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <div style="font-family:monospace;font-size:11px;color:#8b949e">npx fynor</div>
+          <div style="font-size:10px;color:#484f58;margin-top:2px">npm · Month 15 · community demand</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <div style="font-family:monospace;font-size:11px;color:#8b949e">docker run fynor</div>
+          <div style="font-size:10px;color:#484f58;margin-top:2px">Docker · Month 15 · enterprise demand</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CI/CD -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#e2e8f0;text-transform:uppercase;margin-bottom:14px">CI / CD — GitHub Actions</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px">
+          <div style="font-size:11px;font-weight:700;color:#3fb950;font-family:monospace">ci.yml</div>
+          <div style="font-size:10px;color:#6ee7b7;margin-top:4px">Trigger: every push + PR</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:3px;line-height:1.6">checkout → Python 3.11 setup<br>pip install -e ".[dev]"<br>pytest -v</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px">
+          <div style="font-size:11px;font-weight:700;color:#f59e0b;font-family:monospace">publish.yml</div>
+          <div style="font-size:10px;color:#fde68a;margin-top:4px">Trigger: git tag push (v0.x)</div>
+          <div style="font-size:10px;color:#8b949e;margin-top:3px;line-height:1.6">build → PyPI via Trusted Publisher<br>(no API key needed)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Observability -->
+    <div style="background:#0d1117;border:1px solid #21262d;border-radius:12px;padding:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#e2e8f0;text-transform:uppercase;margin-bottom:6px">Observability</div>
+      <div style="font-size:10px;color:#475569;margin-bottom:12px">Phase C — instruments Fynor itself for enterprise buyers</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:11px;font-weight:700;color:#60a5fa">OpenTelemetry</span>
+          <div style="font-size:10px;color:#64748b;margin-top:2px">Traces + spans for check runs</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:11px;font-weight:700;color:#f97316">Prometheus</span>
+          <div style="font-size:10px;color:#64748b;margin-top:2px">/metrics endpoint for enterprise</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:11px;font-weight:700;color:#a3e635">structlog</span>
+          <div style="font-size:10px;color:#64748b;margin-top:2px">Structured JSON logs</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 10px">
+          <span style="font-family:monospace;font-size:11px;font-weight:700;color:#f97316">Grafana</span>
+          <div style="font-size:10px;color:#64748b;margin-top:2px">Enterprise client dashboards</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- FOOTER -->
 <div class="footer">
   <a href="https://github.com/sriramkarthick/fynor-mcp-scorecard">github.com/sriramkarthick/fynor-mcp-scorecard</a>
