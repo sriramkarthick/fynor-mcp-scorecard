@@ -267,5 +267,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-*Fynor Technologies — Thiruppuvanam, Tamil Nadu, India*
-*Building the AI OS layer, one check at a time.*
+*Fynor Technologies — *Building the AI OS layer, one check at a time.*
