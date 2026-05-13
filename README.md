@@ -20,12 +20,12 @@ fynor check --target https://your-mcp-server.com/mcp --type mcp
   Performance:  80.0/100
 
   ✓ latency_p95          100  P95 latency: 340ms over 20 requests.
-  ✗ error_rate             40  Error rate: 8.2% (4/50 requests failed).
+  ✗ error_rate             30  Error rate: 8.2% (4/50 requests failed).
   ✓ schema               100  MCP schema valid: JSON-RPC 2.0 compliant.
   ✓ retry                100  Correctly returned 400 on malformed request.
   ✓ auth_token           100  No leakage, 401 on missing auth, no URL secrets.
   ✓ rate_limit           100  429 + Retry-After returned on burst.
-  ✓ timeout              100  Response in 340ms (within 5s threshold).
+  ✓ timeout              100  Response in 340ms (within 2s threshold).
   ✗ log_completeness       0  No audit log endpoint found.
 ──────────────────────────────────────────────────────────────
 ```
@@ -119,7 +119,7 @@ The Company Brain is the solution: structured company know-how, version-controll
 | D | 45–59 | Significant failures. Not recommended. |
 | F | 0–44 | Critical failures. Do not use. |
 
-**Security cap rule:** A zero score on `auth_token` or any security check caps the overall grade at D, regardless of other scores. A fast server with broken auth is not B-grade.
+**Security cap rule:** A zero score on `auth_token` check caps the overall grade at D, regardless of other scores. A fast server with broken auth is not B-grade.
 
 ---
 
