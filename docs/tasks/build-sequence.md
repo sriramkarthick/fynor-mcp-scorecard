@@ -68,7 +68,7 @@ just brand presence and email capture to build the Pro waitlist.
 Developers who don't want to run the CLI themselves can submit a URL and
 get a managed grade.
 
-**Decision basis:** D2 (async workers), D3 (DynamoDB), D5 (FastAPI), D7 (Lambda per check).
+**Decision basis:** D2 (async workers), D3 (DynamoDB), D5 (FastAPI).
 
 ### Month 4 Deliverables
 
@@ -76,8 +76,8 @@ get a managed grade.
 |---------|---------|--------------|
 | FastAPI app scaffolded | `fynor/api/main.py` | App starts, `/health` returns 200 |
 | `POST /check` endpoint | `fynor/api/routes/checks.py` | Returns `job_id` within 1s |
-| Orchestrator Lambda (fans out 8 check Lambdas) | `infrastructure/lambdas/orchestrator.py` | 8 check Lambdas invoked in parallel |
-| Per-check Lambda wrappers | `infrastructure/lambdas/checks/` | Each check Lambda invokes `fynor.checks.*` |
+| ECS Fargate task (orchestrates all 8 checks in-process via `asyncio.gather`) | `infrastructure/terraform/ecs.tf` | Task runs, all 8 checks execute concurrently |
+| ECS task definition + ECR image | `infrastructure/terraform/ecr.tf`, `Dockerfile` | `docker build` succeeds; image pushed to ECR |
 | DynamoDB table provisioned | `infrastructure/terraform/dynamodb.tf` | Table exists, PK=target_hash, SK=timestamp |
 | Check results written to DynamoDB | `fynor/api/storage.py` | Results queryable within 5s of completion |
 | `GET /check/{job_id}` polling endpoint | `fynor/api/routes/checks.py` | Returns result or `{"status": "pending"}` |
@@ -87,7 +87,7 @@ get a managed grade.
 
 | Feature | File(s) | Verifiable by |
 |---------|---------|--------------|
-| API key auth (bcrypt hash stored) | `fynor/api/auth.py` | Unauthenticated requests return 401 |
+| API key auth (HMAC-SHA256 hash stored) | `fynor/api/auth.py` | Unauthenticated requests return 401 |
 | `GET /history` endpoint | `fynor/api/routes/history.py` | Returns last N runs for target |
 | Rate limiting by tier | `fynor/api/middleware/rate_limit.py` | Pro: 12 runs/hr enforced |
 | Webhook delivery (check.completed) | `fynor/api/webhooks.py` | Webhook fires within 30s of check completion |

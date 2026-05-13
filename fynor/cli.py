@@ -11,7 +11,9 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import sys
+
 import click
 
 from fynor import __version__
@@ -48,15 +50,50 @@ def main() -> None:
     show_default=True,
     help="Output format.",
 )
-def check(target: str, interface_type: str, auth_token: str | None, output: str) -> None:
+@click.option(
+    "--skip-ssrf-check",
+    is_flag=True,
+    default=False,
+    hidden=True,
+    help="Skip SSRF validation (for testing against localhost only).",
+)
+def check(
+    target: str,
+    interface_type: str,
+    auth_token: str | None,
+    output: str,
+    skip_ssrf_check: bool,
+) -> None:
     """
     Run all reliability checks against an interface.
 
+    Validates the target URL for safety before running any checks.
     Writes results to ~/.fynor/history.jsonl for pattern detection.
 
     Example:
       fynor check --target http://localhost:8000/mcp --type mcp
     """
+    from fynor.adapters.base import validate_target_url
+
+    # SSRF protection: validate before dispatching any HTTP requests
+    if not skip_ssrf_check:
+        try:
+            validate_target_url(target)
+        except ValueError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(1)
+
+    asyncio.run(_run_check(target, interface_type, auth_token, output))
+
+
+async def _run_check(
+    target: str,
+    interface_type: str,
+    auth_token: str | None,
+    output: str,
+) -> None:
+    """Async implementation of the check command."""
+    import asyncio as _asyncio
     from fynor.adapters.mcp import MCPAdapter
     from fynor.adapters.rest import RESTAdapter
     from fynor.checks.mcp import ALL_CHECKS as MCP_CHECKS
@@ -82,21 +119,19 @@ def check(target: str, interface_type: str, auth_token: str | None, output: str)
 
     click.echo(f"\nFynor — checking {interface_type.upper()} interface: {target}\n")
 
-    results = []
-    for check_fn in checks:
-        with click.progressbar(
-            length=1,
-            label=f"  {check_fn.__name__.replace('check_', '').ljust(20)}",
-        ) as bar:
-            result = check_fn(adapter)
-            bar.update(1)
-            results.append(result)
-            append_result(target, interface_type, result)
+    # Run all 8 checks concurrently for speed
+    check_tasks = [check_fn(adapter) for check_fn in checks]
+    results = await _asyncio.gather(*check_tasks)
 
-    scorecard = score(target, interface_type, results)
+    # Write history and display results
+    for result in results:
+        append_result(target, interface_type, result)
+
+    scorecard = score(target, interface_type, list(results))
 
     if output == "json":
-        import json, dataclasses
+        import json
+        import dataclasses
         click.echo(json.dumps(dataclasses.asdict(scorecard), indent=2))
         return
 

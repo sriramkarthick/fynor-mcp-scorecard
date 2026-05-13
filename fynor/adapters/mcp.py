@@ -25,10 +25,15 @@ class MCPAdapter(BaseAdapter):
 
     Sends JSON-RPC 2.0 requests and normalises the MCP envelope
     into a standard Response for the check engine.
+
+    All methods are async (httpx.AsyncClient). A fresh client is created
+    per call to avoid connection-pool state bleeding between checks.
+    For burst() calls the parent class reuses this method sequentially,
+    which is correct — each request is independent.
     """
 
     # Minimal JSON-RPC 2.0 probe — lists available tools
-    _PROBE_PAYLOAD = {
+    _PROBE_PAYLOAD: dict = {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "tools/list",
@@ -44,21 +49,22 @@ class MCPAdapter(BaseAdapter):
         """
         Args:
             target:     Full URL of the MCP server (e.g. http://localhost:8000/mcp).
-            timeout:    Request timeout in seconds.
+                        Must be pre-validated via validate_target_url().
+            timeout:    Per-request timeout in seconds.
             auth_token: Bearer token for authenticated MCP servers.
         """
         super().__init__(target, timeout)
         self._auth_token = auth_token
-        self._client = httpx.Client(timeout=timeout)
 
-    def call(self, payload: dict | None = None) -> Response:
+    async def call(self, payload: dict | None = None) -> Response:
         """Send one JSON-RPC 2.0 request to the MCP server."""
-        body = payload or self._PROBE_PAYLOAD
+        body = payload if payload is not None else self._PROBE_PAYLOAD
         headers = self._build_headers()
 
         t0 = time.monotonic()
         try:
-            r = self._client.post(self.target, json=body, headers=headers)
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                r = await client.post(self.target, json=body, headers=headers)
             latency_ms = (time.monotonic() - t0) * 1000.0
             return Response(
                 status_code=r.status_code,
@@ -82,13 +88,13 @@ class MCPAdapter(BaseAdapter):
                 error=str(exc),
             )
 
-    def get_schema(self) -> dict:
+    async def get_schema(self) -> dict:
         """
         Retrieve the MCP server's tool schema via tools/list.
 
         Returns the full JSON-RPC result body, or empty dict on failure.
         """
-        r = self.call(self._PROBE_PAYLOAD)
+        r = await self.call(self._PROBE_PAYLOAD)
         if not r.ok or not isinstance(r.body, dict):
             return {}
         return r.body.get("result", {})
@@ -97,7 +103,7 @@ class MCPAdapter(BaseAdapter):
         """Return current auth headers (Bearer token if configured)."""
         return self._build_headers()
 
-    def call_without_auth(self) -> Response:
+    async def call_without_auth(self) -> Response:
         """
         Make a request with no auth headers.
 
@@ -106,11 +112,12 @@ class MCPAdapter(BaseAdapter):
         """
         t0 = time.monotonic()
         try:
-            r = self._client.post(
-                self.target,
-                json=self._PROBE_PAYLOAD,
-                headers={"Content-Type": "application/json"},
-            )
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                r = await client.post(
+                    self.target,
+                    json=self._PROBE_PAYLOAD,
+                    headers={"Content-Type": "application/json"},
+                )
             latency_ms = (time.monotonic() - t0) * 1000.0
             return Response(
                 status_code=r.status_code,
@@ -130,16 +137,13 @@ class MCPAdapter(BaseAdapter):
         return self._PROBE_PAYLOAD
 
     def _build_headers(self) -> dict[str, str]:
-        headers: dict[str, str] = {"Content-Type": "application/json"}
+        headers: dict[str, str] = {
+            "Content-Type": "application/json",
+            "User-Agent": "Fynor-Reliability-Checker/1.0",
+        }
         if self._auth_token:
             headers["Authorization"] = f"Bearer {self._auth_token}"
         return headers
-
-    def __del__(self) -> None:
-        try:
-            self._client.close()
-        except Exception:  # noqa: BLE001
-            pass
 
 
 def _safe_json(response: Any) -> dict | str:

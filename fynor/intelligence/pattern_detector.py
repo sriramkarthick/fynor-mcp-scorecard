@@ -76,11 +76,17 @@ class PatternDetector:
         patterns, alerts = detector.run(target="https://api.example.com")
     """
 
-    # Thresholds
+    # Thresholds — locked in ADR-04. Do not adjust without a superseding ADR.
     COFAILURE_THRESHOLD = 0.70      # checks failing together in ≥70% of runs
     DRIFT_ZSCORE_THRESHOLD = 2.5    # z-score above this triggers a drift alert
-    TIME_HOT_HOUR_MULTIPLIER = 3.0  # 3x expected rate = time signature
-    MIN_RUNS_FOR_PATTERN = 10       # need at least 10 runs to detect anything
+    TIME_HOT_HOUR_MULTIPLIER = 3.0  # 3× expected rate = time signature
+    MIN_RUNS_FOR_PATTERN = 10       # minimum runs for co-failure and drift algorithms
+    # Time-signature needs more data: 20 runs AND 48h span to prevent
+    # bootstrapping false positives. A new client running 10 checks in a
+    # 2-hour window has all data in 2 buckets — the 24-bucket histogram is
+    # degenerate. Without a minimum time span, the 3× multiplier fires trivially.
+    TIME_SIG_MIN_RUNS = 20
+    TIME_SIG_MIN_SPAN_HOURS = 48.0
 
     def __init__(
         self,
@@ -260,10 +266,36 @@ class PatternDetector:
         Detect failures clustering at specific hours of the day.
 
         Method: build a 24-bucket hour histogram of failures.
-        Flag any hour where the failure rate is 3x the expected rate.
+        Flag any hour where the failure rate is 3× the expected rate.
 
-        Common cause: auth token rotation at midnight, cron jobs, backups.
+        Common causes: auth token rotation at midnight, cron jobs, backups.
+
+        Guards:
+        - Requires TIME_SIG_MIN_RUNS total runs (not just failures) to prevent
+          false positives from small samples.
+        - Requires TIME_SIG_MIN_SPAN_HOURS of history span. A new client running
+          10 checks in a 2-hour window has all data in 2 of 24 buckets —
+          the histogram is degenerate and the 3× threshold fires trivially.
         """
+        if len(rows) < self.TIME_SIG_MIN_RUNS:
+            return []
+
+        # Verify history spans at least TIME_SIG_MIN_SPAN_HOURS
+        try:
+            timestamps = sorted(
+                datetime.fromisoformat(r["ts"].replace("Z", "+00:00"))
+                for r in rows
+                if r.get("ts")
+            )
+            if timestamps:
+                span_hours = (
+                    (timestamps[-1] - timestamps[0]).total_seconds() / 3600.0
+                )
+                if span_hours < self.TIME_SIG_MIN_SPAN_HOURS:
+                    return []
+        except Exception:  # noqa: BLE001
+            return []
+
         failure_rows = [r for r in rows if not r.get("passed", True)]
         if len(failure_rows) < 5:
             return []

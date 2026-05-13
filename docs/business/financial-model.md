@@ -16,7 +16,7 @@ Each paid tier corresponds to a specific buyer persona.
 | **Free** | $0 | Individual developer, open source maintainer | CLI + 8 checks + local history |
 | **Pro** | $49/month | MCP server operator, solo AI developer | Hosted dashboard + 5 targets + 30-day history + Agent-Ready badge |
 | **Team** | $249/month | Engineering team at AI-first startup | 25 targets + CI/CD integration + Slack alerts + 90-day history |
-| **Enterprise** | $999/month | Regulated-industry AI deployer | Unlimited targets + compliance reports + custom ontology + dedicated support + 1-year history |
+| **Enterprise** | $4,999/month | Regulated-industry AI deployer | Unlimited targets + compliance reports + custom ontology + dedicated support + 1-year history + SLA |
 
 ### Phase C Add-on: AI OS Monitoring (2027+)
 
@@ -37,7 +37,7 @@ Each paid tier corresponds to a specific buyer persona.
 
 ## ARR Projections — 7-Year Model
 
-Key assumptions:
+Key assumptions (base case):
 - Free-to-Pro conversion: 3% of active CLI installs
 - Pro-to-Team upgrade: 12% of Pro accounts (team adoption)
 - Team-to-Enterprise upgrade: 8% of Team accounts
@@ -45,19 +45,42 @@ Key assumptions:
 - Phase C adoption: 15% of Enterprise clients add AI OS monitoring
 - Phase D adoption: 30% of AI OS Business/Enterprise clients add Company Brain
 
-### Year-by-Year Summary
+### Base Case — Year-by-Year Summary
 
 | Year | Month Range | Pro | Team | Enterprise | AI OS | Brain | MRR | ARR |
 |------|-------------|-----|------|------------|-------|-------|-----|-----|
 | Y1 | M6–M18 | 150 | 15 | 0 | 0 | 0 | $11,085 | $133K |
-| Y2 | M18–M30 | 450 | 60 | 5 | 0 | 0 | $37,545 | $451K |
-| Y3 | M30–M42 | 900 | 160 | 20 | 0 | 0 | $83,780 | $1.0M |
-| Y4 | M42–M54 | 1,600 | 320 | 55 | 5 | 0 | $187,300 | $2.2M |
-| Y5 | M54–M66 | 2,400 | 500 | 100 | 20 | 0 | $330,000 | $3.96M |
-| Y6 | M66–M78 | 3,200 | 700 | 160 | 50 | 5 | $539,800 | $6.5M |
-| Y7 | M78–M90 | 4,000 | 900 | 220 | 80 | 15 | $766,000 | $9.2M+ |
+| Y2 | M18–M30 | 450 | 60 | 5 | 0 | 0 | $37,295 | $448K |
+| Y3 | M30–M42 | 900 | 160 | 20 | 0 | 0 | $138,580 | $1.66M |
+| Y4 | M42–M54 | 1,600 | 320 | 55 | 5 | 0 | $412,800 | $4.95M |
+| Y5 | M54–M66 | 2,400 | 500 | 100 | 20 | 0 | $705,000 | $8.46M |
+| Y6 | M66–M78 | 3,200 | 700 | 160 | 50 | 5 | $1,115,800 | $13.4M |
+| Y7 | M78–M90 | 4,000 | 900 | 220 | 80 | 15 | $1,596,000 | $19.2M+ |
 
-**Exit target range:** $15M–$20M ARR by Year 8–9 → 4–6× ARR multiple = **$60M–$120M**
+**Base case exit range:** $15M–$20M ARR by Year 7–8 → 4–6× ARR multiple = **$60M–$120M**
+
+### Conservative Case (1.5% Free-to-Pro conversion, 20% higher churn)
+
+Conservative assumptions reflect a slower MCP market adoption or stronger competition:
+- Free-to-Pro conversion: 1.5% (half of base)
+- Pro-to-Team upgrade: 8% (vs 12%)
+- Monthly churn: Pro 5%, Team 3.5%, Enterprise 1.5%
+
+| Year | Month Range | Pro | Team | Enterprise | MRR | ARR |
+|------|-------------|-----|------|------------|-----|-----|
+| Y1 | M6–M18 | 70 | 5 | 0 | $4,675 | $56K |
+| Y2 | M18–M30 | 200 | 20 | 2 | $14,780 | $177K |
+| Y3 | M30–M42 | 420 | 65 | 8 | $52,030 | $624K |
+| Y4 | M42–M54 | 750 | 130 | 22 | $134,725 | $1.62M |
+| Y5 | M54–M66 | 1,100 | 210 | 40 | $261,550 | $3.14M |
+| Y6 | M66–M78 | 1,500 | 300 | 65 | $398,250 | $4.78M |
+| Y7 | M78–M90 | 1,900 | 390 | 90 | $539,650 | $6.48M |
+
+**Conservative exit range:** $6M–$7M ARR by Year 7 → 4–5× ARR multiple = **$24M–$35M**
+
+Even the conservative scenario clears a meaningful acquisition threshold.
+The delta between cases narrows at Phase C (AI OS) because enterprise ACV
+($4,999/mo) dominates MRR math once 50+ clients are onboarded.
 
 ---
 
@@ -118,9 +141,9 @@ Agent-Ready badge becomes a developer-community signal (similar to Shields.io ba
 | **CAC (Enterprise)** | ~$2,500 | Sales-assisted, Calendly audit funnel |
 | **LTV (Pro, 25-month avg)** | ~$1,225 | At 4% monthly churn, avg lifetime = 25 months |
 | **LTV (Team, 40-month avg)** | ~$9,960 | At 2.5% monthly churn |
-| **LTV (Enterprise, 100-month avg)** | ~$99,900 | At 1% monthly churn |
+| **LTV (Enterprise, 100-month avg)** | ~$499,900 | At 1% monthly churn, $4,999/mo ACV |
 | **LTV/CAC (Pro)** | 30× | Excellent for PLG motion |
-| **LTV/CAC (Enterprise)** | 40× | Strong for sales-assisted |
+| **LTV/CAC (Enterprise)** | 200× | Enterprise ACV raised to $4,999/mo; CAC ~$2,500 |
 
 ---
 
@@ -152,11 +175,11 @@ shipped with first commercial customers.
 
 **Valuation math:**
 
-| Year | ARR | Multiple | Valuation |
-|------|-----|----------|-----------|
-| Y7 (2033) | $9.2M | 8× | $73.6M |
-| Y8 (2034) | $13M | 7× | $91M |
-| Y9 (2035) | $18M | 5× | $90M |
+| Year | ARR (Base) | Multiple | Valuation |
+|------|-----------|----------|-----------|
+| Y7 (2033) | $19.2M | 5× | $96M |
+| Y8 (2034) | $27M | 5× | $135M |
+| Y9 (2035) | $38M | 4× | $152M |
 
 The 5–8× ARR multiple is justified by:
 1. **Proprietary ground truth database** (no competitor can replicate without years of live deployments)

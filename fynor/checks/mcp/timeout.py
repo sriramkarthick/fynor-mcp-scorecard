@@ -1,17 +1,15 @@
 """
 fynor.checks.mcp.timeout — Check 7: Timeout handling.
 
-Re-runs the probe with a strict 5-second client timeout and verifies
+Sends a probe with a strict 5-second client timeout and verifies
 the server either responds in time or returns a graceful error.
-An agent connected to a hanging endpoint blocks its entire pipeline
-indefinitely — there is no worse failure mode.
+A hanging endpoint blocks an agent's entire pipeline indefinitely —
+there is no worse failure mode in a synchronous agent workflow.
 
-Pass: server responds within 5s (any response including 5xx is OK here).
-Score:
-  Response ≤ 2000ms   → 100
-  Response ≤ 5000ms   →  75
-  Graceful error body →  50   (server responded, just slow)
-  Hard hang / timeout →   0   (pipeline blocker)
+Scoring:
+  Response ≤ 2000ms   → 100   (well within agent pipeline budgets)
+  Response ≤ 5000ms   →  75   (pass — acceptable, consider optimising)
+  Hard hang / timeout →   0   (fail — pipeline blocker)
 """
 
 from __future__ import annotations
@@ -21,17 +19,19 @@ from fynor.adapters.mcp import MCPAdapter
 from fynor.adapters.rest import RESTAdapter
 from fynor.history import CheckResult
 
+_TIGHT_TIMEOUT_S = 5.0   # client-side timeout for this check
+_FAST_THRESHOLD_MS = 2000.0
 
-def check_timeout(adapter: BaseAdapter) -> CheckResult:
+
+async def check_timeout(adapter: BaseAdapter) -> CheckResult:
     """
     Probe the target with a 5-second timeout and check the response.
 
     Returns:
         CheckResult with check="timeout", value=latency_ms or None.
     """
-    # Create a tight-timeout copy of the adapter
-    tight = _make_tight_adapter(adapter, timeout=5.0)
-    response = tight.call()
+    tight = _make_tight_adapter(adapter, timeout=_TIGHT_TIMEOUT_S)
+    response = await tight.call()
 
     # Hard hang — worst case
     if response.error and "timeout" in response.error.lower():
@@ -41,57 +41,69 @@ def check_timeout(adapter: BaseAdapter) -> CheckResult:
             score=0,
             value=None,
             detail=(
-                "Server did not respond within 5 seconds (hard timeout). "
-                "Agents block indefinitely on this endpoint — "
-                "pipeline hangs until the orchestrator's own timeout fires."
+                f"Server did not respond within {_TIGHT_TIMEOUT_S:.0f}s (hard timeout). "
+                "Agents block indefinitely on this endpoint — the pipeline hangs "
+                "until the orchestrator's own timeout fires, aborting everything upstream. "
+                "Ensure the server responds (even with an error) within 5 seconds."
             ),
         )
 
-    # Fast response — best case
-    if response.latency_ms <= 2000 and response.error is None:
-        return CheckResult(
-            check="timeout",
-            passed=True,
-            score=100,
-            value=round(response.latency_ms, 2),
-            detail=f"Fast response: {response.latency_ms:.0f}ms (well within 5s threshold).",
-        )
-
-    # Slow but within 5s
-    if response.latency_ms <= 5000 and response.error is None:
+    # Connection error (not timeout) — some graceful signal received
+    if response.error:
         return CheckResult(
             check="timeout",
             passed=True,
             score=75,
             value=round(response.latency_ms, 2),
             detail=(
-                f"Slow response: {response.latency_ms:.0f}ms — within 5s threshold but "
-                "latency is high. Consider optimising for sustained agent workloads."
+                f"Server returned a connection error quickly ({response.latency_ms:.0f}ms): "
+                f"{response.error}. "
+                "Graceful degradation confirmed — agent can detect the failure and move on."
             ),
         )
 
-    # Connection error but not timeout — some graceful signal received
+    # Fast response — best case
+    if response.latency_ms <= _FAST_THRESHOLD_MS:
+        return CheckResult(
+            check="timeout",
+            passed=True,
+            score=100,
+            value=round(response.latency_ms, 2),
+            detail=(
+                f"Fast response: {response.latency_ms:.0f}ms "
+                f"(well within {_TIGHT_TIMEOUT_S:.0f}s threshold)."
+            ),
+        )
+
+    # Slow but within timeout window
     return CheckResult(
         check="timeout",
         passed=True,
-        score=50,
+        score=75,
         value=round(response.latency_ms, 2),
         detail=(
-            f"Server responded with error ({response.error or response.status_code}) "
-            "but did not hard-hang. Graceful degradation confirmed."
+            f"Slow response: {response.latency_ms:.0f}ms — within the "
+            f"{_TIGHT_TIMEOUT_S:.0f}s threshold but high for agent workloads. "
+            "Consider optimising for P95 response times under 2000ms."
         ),
     )
 
 
 def _make_tight_adapter(adapter: BaseAdapter, timeout: float) -> BaseAdapter:
-    """Return a copy of the adapter with a tighter timeout."""
+    """Return a copy of the adapter with the tighter timeout for this check."""
     if isinstance(adapter, MCPAdapter):
-        return MCPAdapter(adapter.target, timeout=timeout,
-                          auth_token=getattr(adapter, "_auth_token", None))
+        return MCPAdapter(
+            adapter.target,
+            timeout=timeout,
+            auth_token=getattr(adapter, "_auth_token", None),
+        )
     if isinstance(adapter, RESTAdapter):
-        return RESTAdapter(adapter.target, timeout=timeout,
-                           method=adapter._method,
-                           auth_token=getattr(adapter, "_auth_token", None),
-                           probe_path=adapter._probe_path)
-    # Generic fallback — same class, same target, tighter timeout
+        return RESTAdapter(
+            adapter.target,
+            timeout=timeout,
+            method=adapter._method,
+            auth_token=getattr(adapter, "_auth_token", None),
+            probe_path=adapter._probe_path,
+        )
+    # Generic fallback — same type, same target, tighter timeout
     return type(adapter)(adapter.target, timeout=timeout)

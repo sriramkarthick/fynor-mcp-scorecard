@@ -20,15 +20,15 @@ Every check function must satisfy ALL of the following. No exceptions.
 ### Return Type
 
 ```python
-from fynor.checks.base import CheckResult
+from fynor.history import CheckResult
 
 @dataclass
 class CheckResult:
-    score: int          # 0–100. 0 = critical failure. 100 = full pass.
-    passed: bool        # True if score >= check-specific pass threshold
-    detail: str         # Human-readable explanation, max 200 chars
-    check_name: str     # Exact name from ADR-03 (e.g., "auth_token")
-    duration_ms: int    # How long the check took in milliseconds
+    check: str                      # Exact name from ADR-03 (e.g., "auth_token")
+    passed: bool                    # True if score >= check-specific pass threshold
+    score: int                      # 0–100. 0 = critical failure. 100 = full pass.
+    value: float | str | None = None  # Raw measured value (ms, %, count — check-specific)
+    detail: str = ""               # Human-readable explanation (max 500 chars)
 ```
 
 ### Determinism Rule
@@ -88,12 +88,17 @@ Coverage must be ≥ 90% for each check file individually.
 **Pass threshold:** score ≥ 60 (P95 latency ≤ 500ms)
 
 ```
-Scoring:
+Scoring (step function — no interpolation):
   P95 latency ≤ 200ms  → score = 100
-  P95 latency ≤ 500ms  → score = 60 + ((500 - P95) / 300) * 40  (linear interpolation)
-  P95 latency ≤ 1000ms → score = 20 + ((1000 - P95) / 500) * 40
+  P95 latency ≤ 500ms  → score = 80
+  P95 latency ≤ 1000ms → score = 60   ← pass threshold
   P95 latency > 1000ms → score = 0
 ```
+
+**Rationale for step function (not linear interpolation):** Linear scoring
+creates non-determinism under floating-point arithmetic and makes pass/fail
+thresholds ambiguous. Step functions produce identical scores for equivalent
+server states and are easier to test exhaustively. (ADR-04 justification.)
 
 **Implementation requirements:**
 - Send exactly 20 HTTP GET requests to the target's health/probe endpoint
@@ -117,14 +122,12 @@ pytest tests/checks/test_latency_p95.py -v
 **Pass threshold:** score ≥ 60 (error rate ≤ 5%)
 
 ```
-Scoring:
-  error_rate = 0%   → score = 100
-  error_rate ≤ 1%   → score = 90
-  error_rate ≤ 5%   → score = 60
-  error_rate ≤ 10%  → score = 30
-  error_rate > 10%  → score = 0
-
-  Interpolate linearly within each band.
+Scoring (step function — no interpolation):
+  error_rate = 0%    → score = 100
+  error_rate ≤ 1%    → score = 90
+  error_rate ≤ 5%    → score = 60   ← pass threshold (≤5%)
+  error_rate ≤ 10%   → score = 30
+  error_rate > 10%   → score = 0
 ```
 
 **Implementation requirements:**
@@ -184,12 +187,12 @@ pytest tests/checks/test_schema.py -v
 **Pass threshold:** score ≥ 60 (server handles malformed requests gracefully)
 
 ```
-Scoring:
+Scoring (per probe; final = average of two probes):
   Returns 400 with JSON-RPC error object  → score = 100
-  Returns 400 with plain error text       → score = 70
-  Returns 200 with JSON-RPC error object  → score = 60  (technically valid)
-  Returns 500 on malformed input          → score = 20
-  Server crashes / times out             → score = 0
+  Returns 400 with plain error text       → score = 80
+  Returns 200 with JSON-RPC error object  → score = 60   ← pass threshold
+  Returns 2xx with no error object        → score = 20
+  Returns 5xx / times out                → score = 0
 ```
 
 **Implementation requirements:**
@@ -219,22 +222,31 @@ is capped at D regardless of other check scores. This is the only check
 that can trigger the security cap.
 
 ```
-Scoring:
-  No credential headers in response    → score = 100
-  Non-sensitive derived token present  → score = 70
-  Credential-pattern header present    → score = 0
+Scoring (failure-count model):
+  0 failures → score = 100   ← passed
+  1 failure  → score = 40    ← failed
+  2 failures → score = 10    ← failed
+  3 failures → score = 0     ← failed + security cap triggers
+
+Failure conditions (each counts as one failure):
+  F1. Credential-pattern header found in response
+  F2. Unauthenticated request returns 200 (or non-401/403)
+  F3. Secret found as plaintext URL query parameter (e.g., ?api_key=…)
 ```
 
 **Implementation requirements:**
-- Send a standard probe request
-- Inspect ALL response headers (case-insensitive)
+- Send a standard probe request; inspect ALL response headers case-insensitively
 - Check for headers matching `_SECRET_HEADER_PATTERNS`:
-  `Authorization`, `X-API-Key`, `X-Secret`, `X-Token`, `X-Auth`,
-  `X-Access-Token`, `X-Refresh-Token`, `Bearer`
+  `X-API-Key`, `X-Secret`, `X-Token`, `X-Auth`, `X-Access-Token`,
+  `X-Refresh-Token` (NOT `Authorization` — that is a request header, not a
+  response header; servers that echo it back are already caught by the pattern)
 - If a matching header is found: record its NAME only (never its value)
-  in the `detail` field. The value must never be logged.
-- If the header value looks like a derived/public token (UUID format,
-  session ID format not matching credential patterns), score = 70
+  in the `detail` field. The value must **never** be logged — enforced by test.
+- Also send one unauthenticated probe (no auth headers); 401 or 403 → pass.
+  Any 2xx status → failure F2.
+- Inspect `adapter.target` URL query params for credential-like param names
+  (`api_key`, `token`, `secret`, `key`, `password`); if found → failure F3.
+  Record only the param NAME, never its value.
 
 **Verifiable by:**
 ```bash
@@ -252,19 +264,22 @@ pytest tests/checks/test_auth_token.py -v
 
 ```
 Scoring:
-  429 received within 50 requests at 20 req/s → score = 100
-  429 received but only after > 50 requests   → score = 70
-  No 429 received in burst window             → score = 0
+  429 received + Retry-After header present  → score = 100   ← passed
+  429 received, no Retry-After header        → score = 60    ← passed
+  No 429 received in burst window            → score = 30    ← failed
+  5xx errors received without any 429        → score = 0     ← failed
+  5xx + 429 present: 429 takes precedence (score per Retry-After rule above)
 ```
 
 **Implementation requirements:**
 - Send 50 requests at 20 requests/second (rate = 50ms between requests)
 - User-Agent header: `Fynor-Reliability-Checker/1.0`
 - If a 429 is received at any point, record which request number triggered it
+  in `detail` (e.g., "First 429 at request #12")
+- Check first 429 response for `Retry-After` header (case-insensitive)
 - The burst rate (20 req/s) is chosen to be well below DoS thresholds
   while being above normal human usage (T3 risk mitigation)
-- If the server blocks Fynor's IP (connection refused after 429): score = 100
-  (IP blocking is a valid rate-limiting implementation)
+- `result.value` is the integer count of 429 responses received
 
 **Verifiable by:**
 ```bash
@@ -281,21 +296,22 @@ pytest tests/checks/test_rate_limit.py -v
 
 ```
 Scoring:
-  Response received < 1s  → score = 100
-  Response received < 3s  → score = 80
-  Response received < 5s  → score = 60
-  Response received < 10s → score = 20
-  No response in 10s     → score = 0
+  Response received ≤ 2000ms → score = 100   ← fast (passed)
+  Response received ≤ 5000ms → score = 75    ← slow but alive (passed)
+  Hard timeout (error contains "timeout")    → score = 0     ← failed
+  Non-timeout connection error               → score = 75    ← graceful degradation
 ```
 
 **Implementation requirements:**
-- Send a single request with a 10-second hard timeout
-- Measure time-to-first-byte (TTFB), not time-to-complete
-- Use `httpx` with `timeout=httpx.Timeout(connect=5.0, read=10.0)`
-- If the connection is established but response body hangs, score = 20
-  (server is alive but slow — different failure mode from total timeout)
-- The 5-second pass threshold reflects agent pipeline requirements:
-  an agent calling an MCP tool expects a response within its own timeout window
+- Use a tight adapter (connect_timeout=2.0s, read_timeout=5.0s) — separate
+  from the standard 10s adapter used by other checks
+- A "hard timeout" means the response error string contains the word "timeout"
+- A non-timeout connection error (e.g., "connection refused") is not a timeout
+  failure; it scores 75 as "graceful degradation confirmed" — the server is
+  not hanging, it is just unreachable
+- `result.value` is the measured latency in milliseconds, or `None` on timeout
+- The 2-second threshold reflects agent pipeline SLAs — most orchestrators
+  give tools a 2–3s budget before marking a step as slow
 
 **Verifiable by:**
 ```bash
@@ -312,23 +328,23 @@ pytest tests/checks/test_timeout.py -v
 
 ```
 Scoring:
-  Structured JSON logs on /logs or /metrics → score = 100
-  Plain text logs accessible               → score = 70
-  Health endpoint only (no logs)           → score = 40
-  No observability endpoints found         → score = 0
+  JSON log body + timestamp field present   → score = 100   ← passed
+  JSON log body, no timestamp field         → score = 70    ← passed
+  Plain text log body (non-JSON, 200 OK)    → score = 60    ← passed
+  Health/metrics endpoint only (no logs)    → score = 40    ← failed (not an audit log)
+  No observability endpoint found           → score = 0     ← failed
 ```
 
 **Implementation requirements:**
-- Probe the following endpoints in order:
-  `/logs`, `/metrics`, `/health`, `/.well-known/health`, `/status`
-- For each endpoint that returns 200: check if response is JSON
-- If JSON with `level` or `severity` fields: score = 100 (structured logs)
-- If JSON without log fields but with metrics-like keys: score = 80
-- If plain text (200, not JSON): score = 70
-- If only `/health` returns 200 with no log data: score = 40
-- If no endpoint returns 200: score = 0
-- Non-standard endpoints (e.g., `/api/logs`) are not probed — servers must
-  expose observability on standard paths (documented in Fynor's integration guide)
+- Probe **log paths** first: `/logs`, `/audit`, `/audit-log`, `/events`, `/v1/logs`
+- If no log path returns 200, probe **health/observability paths**:
+  `/metrics`, `/health`, `/.well-known/health`, `/status`
+- `result.value` is the path that returned 200 (e.g., `"/logs"`)
+- Timestamp field detection: key name (case-insensitive) contains any of:
+  `timestamp`, `ts`, `time`, `datetime`, `created_at`, `logged_at`
+- For list responses (JSON array), extract keys from the first element
+- Non-standard paths (e.g., `/api/logs`) are not probed — servers must
+  expose observability on standard paths (documented in the integration guide)
 
 **Verifiable by:**
 ```bash
