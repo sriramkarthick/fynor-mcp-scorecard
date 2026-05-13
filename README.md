@@ -119,7 +119,7 @@ The Company Brain is the solution: structured company know-how, version-controll
 | D | 45–59 | Significant failures. Not recommended. |
 | F | 0–44 | Critical failures. Do not use. |
 
-**Security cap rule:** A zero score on `auth_token` check caps the overall grade at D, regardless of other scores. A fast server with broken auth is not B-grade.
+**Security cap rule:** A zero score on `auth_token` caps the overall grade at D, regardless of other scores. A fast server with broken auth is not B-grade.
 
 ---
 
