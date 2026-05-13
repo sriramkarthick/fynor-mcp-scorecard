@@ -6,7 +6,7 @@ No network calls — all inputs are synthetic CheckResult objects.
 """
 
 from fynor.history import CheckResult
-from fynor.scorer import score, CertificationStatus
+from fynor.scorer import score
 
 
 def _make_result(check: str, passed: bool, sc: int) -> CheckResult:
