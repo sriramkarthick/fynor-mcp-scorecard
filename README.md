@@ -1,159 +1,271 @@
-# Fynor Agent Reliability Platform
+# Fynor — AI Agent Reliability Platform
 
-**The first reliability platform built for how AI agents use software.**
+**The next trillion users are AI agents. Every category of software needs an agent-first rebuild.**
 
-Every API, MCP server, and CLI was built for humans. AI agents use them at machine speed,
-autonomously, without a human to catch failures. Fynor checks whether your interfaces
-are agent-ready — not just available, but correct under agent-specific load patterns.
+Fynor is the reliability platform for that rebuild. It checks whether APIs, MCP servers, and CLIs behave correctly under agent-specific workloads — not just human traffic.
 
 ```bash
 pip install fynor
-fynor check --target https://your-api.com --type rest
-fynor check --target https://your-mcp.com --type mcp
-fynor check --target grpc://your-service:443 --type grpc
-fynor check --target "your-cli --help" --type cli
+fynor check --target https://your-mcp-server.com/mcp --type mcp
 ```
 
-> **Status:** Active development. v0.1 ships November 2026.  
-> [Book a reliability audit](https://cal.com/sriram-fynor) — manual audits available now.
+```
+──────────────────────────────────────────────────────────────
+  Target:    https://your-mcp-server.com/mcp
+  Type:      MCP
+  Grade:     B  (81.5/100)
+
+  Security:    100.0/100
+  Reliability:  72.0/100
+  Performance:  80.0/100
+
+  ✓ latency_p95          100  P95 latency: 340ms over 20 requests.
+  ✗ error_rate             40  Error rate: 8.2% (4/50 requests failed).
+  ✓ schema               100  MCP schema valid: JSON-RPC 2.0 compliant.
+  ✓ retry                100  Correctly returned 400 on malformed request.
+  ✓ auth_token           100  No leakage, 401 on missing auth, no URL secrets.
+  ✓ rate_limit           100  429 + Retry-After returned on burst.
+  ✓ timeout              100  Response in 340ms (within 5s threshold).
+  ✗ log_completeness       0  No audit log endpoint found.
+──────────────────────────────────────────────────────────────
+```
 
 ---
 
-## What Fynor checks
+## The Problem
 
-### MCP Servers
-| Check | What it catches |
-|-------|----------------|
-| Response time (P95) | Latency regressions under agent-speed load |
-| Error rate (24h rolling) | Silent failure patterns |
-| Schema validation | MCP spec compliance drift |
-| Retry behavior | Crash-on-transient-failure bugs |
-| Auth token handling | Credential exposure and rotation failures |
-| Rate limit compliance | Runaway request patterns |
-| Timeout handling | Hard hangs vs. graceful degradation |
-| Log completeness | Missing audit trail |
+APIs, MCP servers, and CLIs were built for humans:
+- Rate limits designed for 10 requests/minute, not 10,000
+- Error messages readable by humans, not parseable by machines
+- Tolerant parsing forgiving enough for a human to interpret
+- Interactive workflows that assume a human clicks the next step
 
-### REST APIs (agent-specific)
-| Check | What it catches |
-|-------|----------------|
-| Rate limit behavior at 1K req/min | Limits built for humans, not agents |
-| Schema consistency across 1000 calls | Drift that breaks agent parsing |
-| Token refresh under sustained load | Auth failures at call #10,001 |
-| Cache header presence | 10x cost from uncached responses |
-| Compression support | Bandwidth waste at agent call volume |
-| Pagination completeness | Agents that silently miss records |
+AI agents break every one of these assumptions. A single failure at call #23 in a 50-step pipeline corrupts everything before it. Agents cannot read an error message and adapt. Silent failures are invisible until production.
 
-### GraphQL APIs
-| Check | What it catches |
-|-------|----------------|
-| Query depth limits | Runaway agent queries |
-| Introspection availability | Agent schema discovery |
-| Error format consistency | Inconsistent error handling |
-| Subscription stability | Dropped agent event streams |
-
-### gRPC Services
-| Check | What it catches |
-|-------|----------------|
-| Proto schema validation | Breaking changes without version bump |
-| Streaming behavior | Bidirectional stream failures |
-| Deadline propagation | Timeouts that cascade through agent pipelines |
-| Connection pooling | Resource exhaustion under agent load |
-
-### WebSocket Connections
-| Check | What it catches |
-|-------|----------------|
-| Connection persistence | Drops under sustained agent sessions |
-| Message ordering | Out-of-order events that corrupt agent state |
-| Reconnection behavior | Silent failures after disconnect |
-| Binary/text frame handling | Malformed frames that crash agent parsers |
-
-### SOAP Services
-| Check | What it catches |
-|-------|----------------|
-| WSDL schema validation | Spec drift |
-| Fault format consistency | Unhandled error states in agents |
-| Encoding compliance | UTF-8 and character encoding failures |
-
-### CLIs (as agent tools)
-| Check | What it catches |
-|-------|----------------|
-| Exit code consistency | CLIs that exit 0 on failure (breaks agent logic) |
-| JSON output mode | CLIs that only output human-readable text |
-| Non-interactive mode | CLIs that hang waiting for human input |
-| Help text completeness | Undiscoverable commands for agent tool-use |
-| Stderr vs stdout discipline | Mixed output that breaks agent parsing |
-
-### Security (all interface types)
-| Check | What it catches |
-|-------|----------------|
-| TLS enforcement | Unencrypted agent traffic |
-| CORS configuration | Overly permissive cross-origin access |
-| Injection handling | SQL, command, and prompt injection vectors |
-| Credential scanning | Secrets leaked in response bodies or headers |
-| Rate limit presence | No protection against agent-driven abuse |
-| Input size limits | Unbounded inputs that crash services |
+**No existing tool tests software against agent-specific failure modes.** Postman, Datadog, Prometheus — all built for human-facing software. None ask: *"Does this MCP server behave correctly when an AI agent calls it 10,000 times per minute?"*
 
 ---
 
-## ROI
+## Three Layers
 
-| Dimension | What Fynor delivers |
-|-----------|-------------------|
-| Better solution | First agent-specific reliability standard — not adapted from human-use testing |
-| Better data structure | Schema consistency validation across 1000+ calls catches drift before agents hit it |
-| Data security | 6-layer security audit across every interface type |
-| Cost reduction | Cache, compression, and rate limit checks reduce agent infrastructure cost by 40-70% |
-| Better efficiency | Identifies the specific calls that slow agent pipelines |
-| Better optimization | Pagination, batching, and connection reuse checks |
-| Value for money | One $5K audit prevents one production incident that costs $50K-$500K |
-| Profit increase | Agent-ready certification lets teams ship AI features 3x faster |
-| Time saving | Audit cycle from 6 weeks to 3 days |
-| Solving discomfort | CTOs know their infrastructure is agent-ready before agents hit it |
+### Layer 1 — Software for Agents (Phase B, now)
+
+8 deterministic checks. No LLM judgment. Binary pass/fail. Every interface type.
+
+| # | Check | What it catches |
+|---|-------|----------------|
+| 1 | `latency_p95` | P95 regression under sustained agent load |
+| 2 | `error_rate` | Silent failure patterns over 50-request window |
+| 3 | `schema` | MCP spec drift — JSON-RPC 2.0 envelope violations |
+| 4 | `retry` | Server crashes on malformed input (agent pipeline killer) |
+| 5 | `auth_token` | Credential leakage, missing 401, secrets in URL params |
+| 6 | `rate_limit` | 429 + Retry-After missing — agent floods endpoint |
+| 7 | `timeout` | Hard hang on slow response (pipeline blocker) |
+| 8 | `log_completeness` | No structured audit trail for regulated environments |
+
+**Interface coverage (version roadmap):**
+
+| Version | Ships | Interfaces |
+|---------|-------|-----------|
+| v0.1 | Month 6 | MCP servers |
+| v0.2 | Month 9 | REST APIs + Security |
+| v0.3 | Month 12 | GraphQL + WebSocket |
+| v0.4 | Month 15 | gRPC + SOAP |
+| v0.5 | Month 18 | CLI tools |
+| v1.0 | Month 20 | All 7 types + hosted dashboard + Agent-Ready certification |
+
+**Agent-Ready Certification:** an interface that passes all checks for 30 consecutive days earns the badge:
+
+```markdown
+[![Fynor Agent-Ready](https://fynor.tech/badge/your-id)](https://fynor.tech/cert/your-id)
+```
+
+### Layer 2 — AI OS for Companies (Phase C, 2027+)
+
+Continuous monitoring of AI agent decisions against domain ontology rules.
+
+Every company deploying AI agents faces the same problem: there is no infrastructure to record what the agent decided, verify whether the decision was correct for the domain, or turn isolated AI decisions into a closed-loop learning system.
+
+Fynor is the AI OS layer that makes this possible:
+
+```
+AI agent makes decision
+  → Runtime monitor checks against domain ontology
+  → Decision recorded in decision_log.jsonl
+  → Violation flagged → domain expert reviews → ground truth record created
+  → "Our AI complied with FINRA rule 4370 in 99.2% of decisions last quarter"
+  → Audit trail queryable by regulators
+```
+
+### Layer 3 — Company Brain (Phase D, 2030+)
+
+The domain ontology packaged as an open standard: a versioned, subscribable Company Brain.
+
+Company knowledge lives in Slack, email, and people's heads. When key people leave, the knowledge leaves. AI agents cannot execute knowledge they cannot access.
+
+The Company Brain is the solution: structured company know-how, version-controlled, queryable by AI agents, growing with every audit.
 
 ---
 
-## Architecture
+## Scoring (ADR-02, locked)
+
+**Security (30%) + Reliability (40%) + Performance (30%)**
+
+| Grade | Score | Meaning |
+|-------|-------|---------|
+| A | 90–100 | Agent-ready. Safe to use in production. |
+| B | 75–89 | Minor issues. Safe with monitoring. |
+| C | 60–74 | Moderate issues. Investigate before production. |
+| D | 45–59 | Significant failures. Not recommended. |
+| F | 0–44 | Critical failures. Do not use. |
+
+**Security cap rule:** A zero score on `auth_token` or any security check caps the overall grade at D, regardless of other scores. A fast server with broken auth is not B-grade.
+
+---
+
+## Self-Learning Architecture
+
+Every check run writes to `~/.fynor/history.jsonl`. Over time, Fynor learns:
+
+```
+Check run → history.jsonl
+    ↓
+Pattern Detector (statistical, no AI):
+  · Co-failure correlation — which checks fail together?
+  · Latency drift         — is P95 trending upward over 30 days?
+  · Time signature        — do failures cluster at specific hours?
+    ↓ anomaly detected
+AI Agent Junction 1 — Failure Interpretation Agent
+  · Reads failure + history + pattern library
+  · Proposes specific remediation
+  ↓ human approves
+Pattern Library (confirmed entries)
+    ↓ 50+ confirmed entries of same type
+AI Agent Junction 2 — Pattern Learning Agent
+  · Proposes new detection function for pattern_detector.py
+  ↓ human approves
+Updated Pattern Detector
+    ↓ (Phase C)
+AI Agent Junction 3 — Ontology Update Agent
+  · Proposes new domain ontology rule
+  ↓ domain expert labels it
+Ground Truth Database (the moat)
+```
+
+**Governing rule: AI proposes. Human approves. Automation executes.**
+
+---
+
+## Installation
+
+```bash
+pip install fynor
+```
+
+**Requirements:** Python 3.11+
+
+**Run your first check:**
+```bash
+fynor check --target http://localhost:8000/mcp --type mcp
+```
+
+**Check history and patterns:**
+```bash
+fynor history --target http://localhost:8000/mcp
+fynor patterns
+```
+
+**JSON output (for CI/CD):**
+```bash
+fynor check --target https://api.example.com --type rest --output json
+```
+
+**GitHub Action:**
+```yaml
+# .github/workflows/agent-reliability.yml
+- uses: fynor/check@v1        # ships Month 8
+  with:
+    target: https://your-api.com
+    type: mcp
+    fail-on: C                # fail CI if grade drops below C
+```
+
+---
+
+## Package Structure
 
 ```
 fynor/
-├── checks/
-│   ├── mcp/          # MCP server reliability
-│   ├── rest/         # REST API agent-readiness
-│   ├── graphql/      # GraphQL agent-readiness  
-│   ├── grpc/         # gRPC agent-readiness
-│   ├── websocket/    # WebSocket agent-readiness
-│   ├── soap/         # SOAP agent-readiness
-│   ├── cli_tool/          # CLI tool agent-readiness
-│   └── security/     # Cross-cutting security audit
-├── report/           # Audit report generation
-└── ontology/         # Domain correctness rules (Phase C)
+├── adapters/               Interface adapters (one per type — MCP, REST, …)
+│   ├── base.py             BaseAdapter abstract class
+│   ├── mcp.py              MCP adapter (JSON-RPC 2.0) — v0.1
+│   └── rest.py             REST adapter (HTTP + JSON) — v0.2
+│
+├── checks/                 8 deterministic checks per interface type
+│   ├── mcp/                MCP checks (v0.1 — all 8 implemented)
+│   ├── rest/               REST checks (v0.2 — Month 9)
+│   ├── graphql/            GraphQL checks (v0.3 — Month 12)
+│   ├── grpc/               gRPC checks (v0.4 — Month 15)
+│   ├── websocket/          WebSocket checks (v0.3 — Month 12)
+│   ├── soap/               SOAP checks (v0.4 — Month 15)
+│   ├── cli_tool/           CLI checks (v0.5 — Month 18)
+│   └── security/           Cross-interface security checks (v0.2)
+│
+├── intelligence/           Self-learning and pattern recognition
+│   ├── pattern_detector.py Statistical engine (co-failure, drift, time signature)
+│   ├── failure_interpreter.py  AI Junction 1 — root cause + remediation (Month 7)
+│   ├── pattern_learner.py      AI Junction 2 — pattern library growth (Month 9)
+│   └── ontology_updater.py     AI Junction 3 — domain rule proposals (Month 18)
+│
+├── certification/          Agent-Ready certification badge system (Month 12)
+│   └── certificate.py      Certificate data model
+│
+├── monitoring/             Runtime monitoring layer / AI OS (Phase C, 2027+)
+│   └── decision_logger.py  AI agent decision recorder
+│
+├── brain/                  Company Brain standard (Phase D, 2030+)
+│   └── schema.py           OntologyFile + OntologyRuleEntry data model
+│
+├── ontology/               Domain ontology storage (Phase C)
+├── report/                 Report generation
+├── history.py              Append-only check result log (JSONL)
+├── scorer.py               Weighted grade engine (ADR-02)
+└── cli.py                  CLI entry point
 ```
 
 ---
 
-## Why this exists
+## Why Fynor
 
-Every category of software needs an agents-first rebuild. The APIs, MCPs, and CLIs
-that AI agents use were designed for human consumption — predictable request rates,
-readable errors, interactive workflows. Agents break all of these assumptions.
+**Existing tools were built for humans, not agents.**
 
-Fynor is the reliability layer for the agents-first transition.
+| Tool | What it measures | What it misses |
+|------|-----------------|----------------|
+| Postman | Does the API respond? | Does it respond correctly at 10,000 req/min? |
+| Datadog | Latency, uptime | Agent-specific failure modes |
+| PromptFoo | LLM output quality | Interface reliability under agent load |
+| LangSmith | Token cost, latency | Schema drift, auth handling, rate limit compliance |
+| Nothing | MCP server reliability | Everything |
+
+Fynor is the first reliability platform built for how AI agents actually use software.
 
 ---
 
-## Built by
+## Get a Full Audit
 
-[Fynor Technologies](https://fynor.tech) — AI reliability auditing for agent-facing infrastructure.  
-Building the ground truth standard for agent-ready software.
+The open-source tool runs the 8 deterministic checks automatically.
+
+For a deep manual audit — domain ontology assessment, runtime monitoring setup, compliance documentation — book 30 minutes:
+
+**[→ Book a full audit](https://calendly.com/sriram-fynor)**
 
 ---
 
-## Roadmap
+## License
 
-- [ ] v0.1 — MCP checks CLI, 8 checks (November 2026)
-- [ ] v0.2 — REST and security checks (December 2026)
-- [ ] v0.3 — GraphQL and WebSocket checks (Q1 2027)
-- [ ] v0.4 — gRPC and SOAP checks (Q1 2027)
-- [ ] v0.5 — CLI tool checks (Q2 2027)
-- [ ] v1.0 — Full platform, GitHub Action, hosted dashboard (Q2 2027)
-- [ ] v2.0 — Domain ontology checks for FinTech and healthcare AI agents
+MIT. See [LICENSE](LICENSE).
+
+---
+
+*Fynor Technologies — Thiruppuvanam, Tamil Nadu, India*
+*Building the AI OS layer, one check at a time.*
