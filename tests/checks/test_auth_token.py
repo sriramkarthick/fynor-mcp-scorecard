@@ -154,6 +154,82 @@ async def test_all_three_failures_score_0():
     assert result.passed is False
 
 
+@pytest.mark.asyncio
+async def test_fake_token_accepted_fails():
+    """Server accepts a syntactically invalid bearer token → 1 failure → score 40."""
+    from unittest.mock import patch, MagicMock
+
+    # Mock the httpx.AsyncClient used in F4
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.post = AsyncMock(return_value=mock_response)
+
+    with patch("fynor.checks.mcp.auth.httpx.AsyncClient", return_value=mock_client):
+        adapter = _mcp_adapter(
+            call_response=_clean_response(),
+            unauth_response=Response(status_code=401, body=None, latency_ms=10.0),
+        )
+        result = await check_auth_token(adapter)
+
+    assert result.passed is False
+    assert result.score == 40
+    assert result.check == "auth_token"
+
+
+@pytest.mark.asyncio
+async def test_fake_token_correctly_rejected_passes():
+    """Server returns 401 on invalid token → F4 passes → score unchanged by F4."""
+    from unittest.mock import patch, MagicMock
+
+    mock_response = MagicMock()
+    mock_response.status_code = 401
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.post = AsyncMock(return_value=mock_response)
+
+    with patch("fynor.checks.mcp.auth.httpx.AsyncClient", return_value=mock_client):
+        adapter = _mcp_adapter(
+            call_response=_clean_response(),
+            unauth_response=Response(status_code=401, body=None, latency_ms=10.0),
+        )
+        result = await check_auth_token(adapter)
+
+    assert result.passed is True
+    assert result.score == 100
+
+
+@pytest.mark.asyncio
+async def test_f4_skipped_when_f2_fires():
+    """F4 must NOT run when F2 already fired (server accepts unauthenticated requests)."""
+    from unittest.mock import patch, MagicMock
+
+    # If F4 ran alongside F2, score would be 10 (2 failures). If F4 is skipped, score is 40.
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.post = AsyncMock(return_value=mock_response)
+
+    with patch("fynor.checks.mcp.auth.httpx.AsyncClient", return_value=mock_client):
+        adapter = _mcp_adapter(
+            call_response=_clean_response(),
+            unauth_response=Response(status_code=200, body={}, latency_ms=10.0),  # F2 fires
+        )
+        result = await check_auth_token(adapter)
+
+    # F2 fired → score 40 (1 failure). F4 skipped. Not score 10.
+    assert result.score == 40
+    assert result.passed is False
+
+
 # ---------------------------------------------------------------------------
 # Scoring unit tests
 # ---------------------------------------------------------------------------

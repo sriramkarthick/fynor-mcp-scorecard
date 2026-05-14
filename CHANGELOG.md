@@ -8,6 +8,29 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0-dev] — 2026-05-14
+
+### Added
+- Check #9: `data_freshness` — detects stale response data via timestamp field analysis
+- Check #10: `tool_description_quality` — validates tool descriptions for AI model selectability
+- Check #11: `response_determinism` — verifies 3-probe structural schema consistency
+- `fynor/profiles.py` — `CheckProfile` with `apply_profile()` and 3 built-in profiles:
+  `default`, `security` (stricter: ≤1% error, ≤500ms P95, ≤60min data, full determinism),
+  `financial` (SOC 2 / PCI DSS optimised)
+- `--profile` flag on `fynor check` command: `fynor check --profile security <url>`
+
+### Changed
+- `auth_token` check: added F4 (invalid Bearer token accepted) as a fourth failure condition
+- `fynor/checks/mcp/__init__.py`: exports 11 checks + updated `ALL_CHECKS` list
+- `fynor/scorer.py`: `_CHECK_CATEGORY` updated for checks 9–11 (all → reliability)
+- `docs/adr/ADR-03`: Amendment 1 — taxonomy entries for checks 9–11 + auth_token F4
+- `docs/adr/ADR-04`: Amendment 1 — threshold justifications for new scoring bands
+- `docs/tasks/check-implementation-contract.md`: contracts for checks 9–11 + auth_token F4
+- `docs/tasks/build-sequence.md`: Month 1 deliverables updated to 11 checks + profiles
+- `README.md`: updated to 11 checks, check table expanded, --profile example added
+
+---
+
 ### Planned for v0.1.0 (Month 6)
 - Live end-to-end `fynor check` run against a real MCP server
 - AI Junction 1: Failure Interpretation Agent (Month 7)

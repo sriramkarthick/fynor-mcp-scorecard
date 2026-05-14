@@ -136,6 +136,75 @@ were considered and rejected.
 
 ---
 
+---
+
+## Amendment 1 — Three New Checks (v0.2)
+
+**Date:** 2026-05-14  
+**Status:** Accepted
+
+Three new checks are added to the MCP check set, expanding from 8 to 11 checks.
+All three belong to the Reliability category (ADR-02, 40% weight).
+The Security and Performance category compositions are unchanged.
+
+### Check #9: `data_freshness`
+
+| Field | Value |
+|-------|-------|
+| Signal class | Reliability — data currency |
+| Agent-specific failure mode | Agent reasons over stale data, makes decisions based on outdated state. A human notices stale timestamps; an agent does not. |
+| Pass threshold | score ≥ 60 (data age ≤ 24 hours) |
+| Scoring | ≤5min→100, ≤60min→80, ≤24h→60 (pass), >24h→20, no timestamp→0 |
+| Rejected alternatives | Response latency check (already `latency_p95`); content correctness (not deterministically verifiable) |
+
+### Check #10: `tool_description_quality`
+
+| Field | Value |
+|-------|-------|
+| Signal class | Reliability — tool discoverability |
+| Agent-specific failure mode | Agent selects wrong tool due to absent or ambiguous tool description, causing incorrect or incomplete operations. Humans read documentation; agents rely entirely on tool descriptions at call time. |
+| Pass threshold | score ≥ 60 (all tools have name + description ≥10 chars) |
+| Scoring | Worst-case across all tools: full (desc≥50+schema)→100, adequate (desc≥20+schema)→80, minimal (desc≥10)→60 (pass), inadequate→20, no tools or no name→0 |
+| Rejected alternatives | Semantic description quality assessment (requires AI judgment, non-deterministic) |
+
+### Check #11: `response_determinism`
+
+| Field | Value |
+|-------|-------|
+| Signal class | Reliability — structural consistency |
+| Agent-specific failure mode | Agent parses response schema from call 1, fails on call 2 due to different keys or types, corrupts the context window with inconsistent data structures. |
+| Pass threshold | score ≥ 60 (at least 2 of 3 probes structurally identical) |
+| Scoring | All 3 identical→100, 2 of 3 identical→60 (pass), all different→0, any error→0 |
+| Rejected alternatives | Full response equality check (data legitimately changes between calls); single-probe check (one probe cannot detect non-determinism) |
+
+### Amendment to Check #5: `auth_token` — F4 Addition
+
+A fourth failure condition is added to the existing `auth_token` check:
+
+**F4: Invalid token signature accepted** — the server returns HTTP 200 when presented with a syntactically plausible but semantically invalid Bearer token. This detects servers that check token _presence_ but not token _validity_ (signature verification). F4 only fires if F2 did NOT fire (if F2 fires, the server accepts ALL requests regardless of auth, making F4 redundant).
+
+Scoring model updated: 0 failures→100, 1→40, 2→10, 3→0, 4→0 (four failures is already the maximum and maps to 0 via the fallback).
+
+The security cap rule is unchanged: any auth_token score of 0 still caps the overall grade at D.
+
+### Updated Check Classification Table
+
+| # | Check | Signal Class | Pass Threshold |
+|---|-------|-------------|----------------|
+| 1 | `latency_p95` | Performance — latency tail | score ≥ 60 |
+| 2 | `error_rate` | Reliability — error budget | score ≥ 60 |
+| 3 | `schema` | Reliability — protocol conformance | score ≥ 60 |
+| 4 | `retry` | Reliability — recovery behavior | score ≥ 60 |
+| 5 | `auth_token` | **Security** — credential handling (F1–F4) | score = 100 |
+| 6 | `rate_limit` | Performance — resource exhaustion protection | score ≥ 60 |
+| 7 | `timeout` | Reliability — hanging connection | score ≥ 60 |
+| 8 | `log_completeness` | Reliability — observability | score ≥ 60 |
+| 9 | `data_freshness` | Reliability — data currency | score ≥ 60 |
+| 10 | `tool_description_quality` | Reliability — tool discoverability | score ≥ 60 |
+| 11 | `response_determinism` | Reliability — structural consistency | score ≥ 60 |
+
+---
+
 ## References
 
 - Beyer, B. et al. (2016). *Site Reliability Engineering*. O'Reilly. Chapter 6.

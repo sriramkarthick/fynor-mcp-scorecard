@@ -57,12 +57,20 @@ def main() -> None:
     hidden=True,
     help="Skip SSRF validation (for testing against localhost only).",
 )
+@click.option(
+    "--profile", "-p",
+    default="default",
+    type=click.Choice(["default", "security", "financial"]),
+    show_default=True,
+    help="Check profile with context-specific pass thresholds (default|security|financial).",
+)
 def check(
     target: str,
     interface_type: str,
     auth_token: str | None,
     output: str,
     skip_ssrf_check: bool,
+    profile: str,
 ) -> None:
     """
     Run all reliability checks against an interface.
@@ -83,7 +91,7 @@ def check(
             click.echo(f"Error: {exc}", err=True)
             sys.exit(1)
 
-    asyncio.run(_run_check(target, interface_type, auth_token, output))
+    asyncio.run(_run_check(target, interface_type, auth_token, output, profile))
 
 
 async def _run_check(
@@ -91,6 +99,7 @@ async def _run_check(
     interface_type: str,
     auth_token: str | None,
     output: str,
+    profile: str = "default",
 ) -> None:
     """Async implementation of the check command."""
     import asyncio as _asyncio
@@ -119,9 +128,14 @@ async def _run_check(
 
     click.echo(f"\nFynor — checking {interface_type.upper()} interface: {target}\n")
 
-    # Run all 8 checks concurrently for speed
+    # Run all checks concurrently for speed
     check_tasks = [check_fn(adapter) for check_fn in checks]
     results = await _asyncio.gather(*check_tasks)
+
+    # Apply profile-specific pass thresholds before scoring
+    from fynor.profiles import get_profile, apply_profile
+    active_profile = get_profile(profile)
+    results = apply_profile(list(results), active_profile)
 
     # Write history and display results
     for result in results:
@@ -141,6 +155,8 @@ async def _run_check(
     click.echo(f"  Target:    {target}")
     click.echo(f"  Type:      {interface_type.upper()}")
     click.echo(f"  Grade:     {scorecard.grade}  ({scorecard.weighted_score:.1f}/100)")
+    if profile != "default":
+        click.echo(f"  Profile:   {profile}")
     if scorecard.security_capped:
         click.echo("  ⚠  ADR-02 security cap applied (critical security failure)")
     click.echo()

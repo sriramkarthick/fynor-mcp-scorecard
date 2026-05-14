@@ -50,7 +50,7 @@ AI agents break every one of these assumptions. A single failure at call #23 in 
 
 ### Layer 1 — Software for Agents (Phase B, now)
 
-8 deterministic checks. No LLM judgment. Binary pass/fail. Every interface type.
+11 deterministic checks. No LLM judgment. Binary pass/fail. Every interface type.
 
 | # | Check | What it catches |
 |---|-------|----------------|
@@ -62,6 +62,9 @@ AI agents break every one of these assumptions. A single failure at call #23 in 
 | 6 | `rate_limit` | 429 + Retry-After missing — agent floods endpoint |
 | 7 | `timeout` | Hard hang on slow response (pipeline blocker) |
 | 8 | `log_completeness` | No structured audit trail for regulated environments |
+| 9 | `data_freshness` | Stale data propagation — agent reasons over outdated state |
+| 10 | `tool_description_quality` | Missing tool descriptions cause agents to select wrong tools |
+| 11 | `response_determinism` | Non-deterministic schemas break agent context windows |
 
 **Interface coverage (version roadmap):**
 
@@ -180,6 +183,11 @@ fynor patterns
 fynor check --target https://api.example.com --type rest --output json
 ```
 
+**Context-specific profiles:**
+```bash
+fynor check --target https://api.example.com --type mcp --profile security
+```
+
 **GitHub Action:**
 ```yaml
 # .github/workflows/agent-reliability.yml
@@ -201,8 +209,8 @@ fynor/
 │   ├── mcp.py              MCP adapter (JSON-RPC 2.0) — v0.1
 │   └── rest.py             REST adapter (HTTP + JSON) — v0.2
 │
-├── checks/                 8 deterministic checks per interface type
-│   ├── mcp/                MCP checks (v0.1 — all 8 implemented)
+├── checks/                 11 deterministic checks per interface type
+│   ├── mcp/                MCP checks (v0.2 — all 11 implemented)
 │   ├── rest/               REST checks (v0.2 — Month 9)
 │   ├── graphql/            GraphQL checks (v0.3 — Month 12)
 │   ├── grpc/               gRPC checks (v0.4 — Month 15)
@@ -253,7 +261,7 @@ Fynor is the first reliability platform built for how AI agents actually use sof
 
 ## Get a Full Audit
 
-The open-source tool runs the 8 deterministic checks automatically.
+The open-source tool runs the 11 deterministic checks automatically.
 
 For a deep manual audit — domain ontology assessment, runtime monitoring setup, compliance documentation — book 30 minutes:
 

@@ -1,0 +1,163 @@
+"""
+fynor/checks/mcp/data_freshness.py — Check #9: data_freshness
+
+Verifies the MCP server includes a detectable recency timestamp in its response
+and that the data is within an acceptable freshness window.
+
+Scoring (step function — no interpolation):
+  No detectable timestamp in response       → score = 0
+  Timestamp present, data age > 24h        → score = 20
+  Timestamp present, data age ≤ 24h        → score = 60  ← pass threshold
+  Timestamp present, data age ≤ 60 min     → score = 80
+  Timestamp present, data age ≤ 5 min      → score = 100
+
+ADR-03 signal class: Reliability — data currency
+Pass threshold: score ≥ 60 (data age ≤ 24 hours)
+
+result.value: data age in minutes (float), or None if no timestamp found.
+result.detail: human-readable explanation including detected timestamp field name.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone, timedelta
+from typing import Any
+
+from fynor.adapters.base import BaseAdapter
+from fynor.history import CheckResult
+
+CHECK_NAME = "data_freshness"
+
+_TIMESTAMP_KEYS = {
+    "timestamp", "ts", "time", "datetime", "created_at", "logged_at",
+    "event_time", "occurred_at", "recorded_at", "updated_at", "modified_at",
+    "generated_at", "fetched_at", "collected_at", "observed_at",
+}
+
+_FRESH_5MIN = 5.0
+_FRESH_60MIN = 60.0
+_FRESH_24H = 24 * 60.0
+
+
+def _score_from_age_minutes(age_minutes: float) -> int:
+    if age_minutes <= _FRESH_5MIN:
+        return 100
+    if age_minutes <= _FRESH_60MIN:
+        return 80
+    if age_minutes <= _FRESH_24H:
+        return 60
+    return 20
+
+
+def _find_timestamp(obj: Any, depth: int = 0) -> tuple[str | None, str | None]:
+    """Recursively search obj for a timestamp field. Returns (field_name, raw_value)."""
+    if depth > 4:
+        return None, None
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if any(ts_key in key.lower() for ts_key in _TIMESTAMP_KEYS):
+                if isinstance(value, (str, int, float)):
+                    return key, str(value)
+            found_key, found_val = _find_timestamp(value, depth + 1)
+            if found_key is not None:
+                return found_key, found_val
+    elif isinstance(obj, list) and len(obj) > 0:
+        return _find_timestamp(obj[0], depth + 1)
+    return None, None
+
+
+def _parse_timestamp(raw: str) -> datetime | None:
+    """Parse a timestamp string or numeric epoch value."""
+    try:
+        val = float(raw)
+        if val > 1e12:
+            val /= 1000.0
+        return datetime.fromtimestamp(val, tz=timezone.utc)
+    except (ValueError, OSError):
+        pass
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+    ):
+        try:
+            dt = datetime.strptime(raw, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
+async def check_data_freshness(adapter: BaseAdapter) -> CheckResult:
+    """Send one probe and assess the recency of data in the response."""
+    try:
+        response = await adapter.call()
+    except Exception as exc:
+        return CheckResult(
+            check=CHECK_NAME, passed=False, score=0, value=None,
+            detail=f"Probe failed: {exc}",
+        )
+
+    body = response.body
+    if not body:
+        return CheckResult(
+            check=CHECK_NAME, passed=False, score=0, value=None,
+            detail="Empty response body — cannot assess data freshness.",
+        )
+
+    field_name, raw_value = _find_timestamp(body)
+    if field_name is None:
+        return CheckResult(
+            check=CHECK_NAME, passed=False, score=0, value=None,
+            detail=(
+                "No timestamp field detected in response. "
+                "MCP servers should include a recency indicator (e.g. 'timestamp', "
+                "'updated_at') so agents can assess data currency."
+            ),
+        )
+
+    parsed_dt = _parse_timestamp(raw_value)
+    if parsed_dt is None:
+        return CheckResult(
+            check=CHECK_NAME, passed=False, score=0, value=None,
+            detail=(
+                f"Timestamp field '{field_name}' found but value '{raw_value[:40]}' "
+                "could not be parsed. Use ISO 8601 or Unix epoch format."
+            ),
+        )
+
+    now = datetime.now(tz=timezone.utc)
+    age_minutes = (now - parsed_dt).total_seconds() / 60.0
+    if age_minutes < 0:
+        age_minutes = 0.0
+
+    score = _score_from_age_minutes(age_minutes)
+    passed = score >= 60
+
+    if age_minutes < 1.0:
+        age_str = f"{age_minutes * 60:.0f}s"
+    elif age_minutes < 60.0:
+        age_str = f"{age_minutes:.1f}min"
+    else:
+        age_str = f"{age_minutes / 60:.1f}h"
+
+    if age_minutes > _FRESH_24H:
+        freshness_note = "Stale — agents may reason over outdated data."
+    elif age_minutes <= _FRESH_5MIN:
+        freshness_note = "Fresh."
+    else:
+        freshness_note = "Acceptable."
+
+    detail = (
+        f"Data age: {age_str} (field: '{field_name}'). "
+        f"Pass threshold: ≤24h. {freshness_note}"
+    )
+
+    return CheckResult(
+        check=CHECK_NAME, passed=passed, score=score,
+        value=round(age_minutes, 2), detail=detail,
+    )

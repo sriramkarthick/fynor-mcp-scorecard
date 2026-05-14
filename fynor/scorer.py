@@ -14,6 +14,12 @@ Grade bands:
 Security cap rule (ADR-02):
   If auth_token or any security check scores 0, final grade cannot exceed D.
   This prevents a fast server with broken auth from grading as B or C.
+
+11 deterministic checks:
+  Security    (auth_token)
+  Reliability (error_rate, schema, retry, timeout, log_completeness,
+               data_freshness, tool_description_quality, response_determinism)
+  Performance (latency_p95, rate_limit)
 """
 
 from __future__ import annotations
@@ -25,14 +31,17 @@ from fynor.history import CheckResult
 
 # ADR-02: weight categories — locked, do not change without an ADR.
 _CHECK_CATEGORY: dict[str, str] = {
-    "latency_p95":      "performance",
-    "error_rate":       "reliability",
-    "schema":           "reliability",
-    "retry":            "reliability",
-    "auth_token":       "security",
-    "rate_limit":       "performance",
-    "timeout":          "reliability",
-    "log_completeness": "reliability",
+    "latency_p95":              "performance",
+    "error_rate":               "reliability",
+    "schema":                   "reliability",
+    "retry":                    "reliability",
+    "auth_token":               "security",
+    "rate_limit":               "performance",
+    "timeout":                  "reliability",
+    "log_completeness":         "reliability",
+    "data_freshness":           "reliability",
+    "tool_description_quality": "reliability",
+    "response_determinism":     "reliability",
 }
 
 _CATEGORY_WEIGHT: dict[str, float] = {

@@ -22,7 +22,8 @@ No hosted service. No payment. No database. Just `pip install fynor` → `fynor 
 
 | Feature | File(s) | Verifiable by |
 |---------|---------|--------------|
-| All 8 checks implemented | `fynor/checks/` | `pytest tests/checks/ -v` |
+| All 11 checks implemented | `fynor/checks/` | `pytest tests/checks/ -v` |
+| Check profiles (`--profile` flag) | `fynor/profiles.py` | `fynor check --profile security <url>` applies stricter thresholds |
 | Scorer with security cap | `fynor/scorer.py` | `pytest tests/test_scorer.py -v` |
 | CLI: `fynor check <url>` | `fynor/cli.py` | `fynor check https://example-mcp.com` prints grade |
 | CLI: `fynor history` (local JSON) | `fynor/cli.py` | History file written to `~/.fynor/history.jsonl` |

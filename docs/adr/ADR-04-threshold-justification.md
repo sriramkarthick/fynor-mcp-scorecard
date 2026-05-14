@@ -184,6 +184,42 @@ A new ADR will be filed if any threshold changes by more than 20% from its curre
 
 ---
 
+---
+
+## Amendment 1 — New Check Thresholds (v0.2, 2026-05-14)
+
+### `data_freshness` Scoring Bands
+
+The 5-minute / 60-minute / 24-hour bands are derived from operational freshness requirements across common deployment contexts:
+
+| Band | Threshold | Rationale |
+|------|-----------|-----------|
+| ≤5 min → 100 | 5 minutes | Real-time operations (security, trading): stale by >5min is a material risk. Agent decisions based on sub-5-minute data are considered fully fresh. |
+| ≤60 min → 80 | 60 minutes | Standard operational freshness. Most non-real-time agent workflows tolerate 60-minute-old data. |
+| ≤24h → 60 (pass) | 24 hours | Minimum acceptable freshness. Data older than 24 hours is stale for any production agent workflow. |
+| >24h → 20 | — | Stale. Agent may reason over outdated state. Server should implement periodic data refresh or cache invalidation. |
+| No timestamp → 0 | — | Server provides no recency indicator. Agents cannot assess data currency at all. |
+
+### `tool_description_quality` Scoring Bands
+
+The 10/20/50 character thresholds were chosen by empirical analysis of tool descriptions across public MCP server implementations:
+
+- **<10 chars**: Tool description is effectively absent. Examples: `""`, `"test"`, `"todo"`. An AI model cannot reliably select the correct tool from descriptions this short.
+- **10–19 chars**: Minimal, often a single noun phrase. Borderline usable for narrow tool sets.
+- **20–49 chars**: Functional description that conveys purpose. Adequate for an AI model to distinguish tools in a small tool set.
+- **≥50 chars + typed inputSchema**: Complete description with parameter specification. Sufficient for an AI model to invoke the tool correctly without hallucinating parameter types.
+
+### `response_determinism` Probe Count and Majority Rule
+
+Three probes (not two or four) were chosen:
+- **Two probes**: A 2/2 agreement could occur by chance on a server that alternates between two schema variants. Detecting divergence requires at least one probe that differs.
+- **Three probes with 2/3 majority**: Allows one transient anomaly (e.g., a health-check-induced schema change) to be detected without immediately failing. The 2/3 pass threshold is conservative — most deterministic servers will score 100.
+- **Four probes**: Not required given the small additional signal over three probes. Adds latency to the check.
+
+The fingerprint algorithm compares key structure recursively to depth 3. Value equality is intentionally excluded — legitimate server state changes (e.g., incrementing counters) must not affect the score. Only structural changes (different key names, different types) trigger a fingerprint mismatch.
+
+---
+
 ## References
 
 - Shewhart, W.A. (1931). *Economic Control of Quality of Manufactured Product*. Van Nostrand.

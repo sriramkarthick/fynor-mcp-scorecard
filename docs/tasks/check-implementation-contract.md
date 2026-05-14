@@ -354,9 +354,127 @@ pytest tests/checks/test_log_completeness.py -v
 
 ---
 
+---
+
+### 9. `data_freshness`
+
+**ADR-03 signal class:** Reliability — data currency  
+**Pass threshold:** score ≥ 60 (data age ≤ 24 hours)
+
+```
+Scoring (step function — no interpolation):
+  No timestamp field detected in response    → score = 0
+  Timestamp present, data age > 24h         → score = 20
+  Timestamp present, data age ≤ 24h         → score = 60   ← pass threshold
+  Timestamp present, data age ≤ 60 min      → score = 80
+  Timestamp present, data age ≤ 5 min       → score = 100
+```
+
+**Implementation requirements:**
+- Send one HTTP probe via `adapter.call()`
+- Recursively search response body (depth ≤ 4) for timestamp field names (case-insensitive):
+  `timestamp`, `ts`, `time`, `datetime`, `created_at`, `logged_at`, `event_time`,
+  `occurred_at`, `recorded_at`, `updated_at`, `modified_at`, `generated_at`,
+  `fetched_at`, `collected_at`, `observed_at`
+- Accept both ISO 8601 strings and Unix epoch integers/floats (milliseconds if value > 1e12)
+- `result.value` is the data age in minutes (float), or `None` if no timestamp found
+- `result.detail` must include the detected field name when a timestamp is found
+
+**Verifiable by:**
+```bash
+pytest tests/checks/test_data_freshness.py -v
+# Must cover: 5min, 60min, 24h, stale, no-timestamp, nested-timestamp, epoch format
+```
+
+---
+
+### 10. `tool_description_quality`
+
+**ADR-03 signal class:** Reliability — tool discoverability  
+**Pass threshold:** score ≥ 60 (all tools have name + description ≥10 chars)
+
+```
+Scoring (worst-case across all tools):
+  All tools: name + description ≥50 chars + typed inputSchema  → score = 100
+  All tools: name + description ≥20 chars + inputSchema present → score = 80
+  All tools: name + description ≥10 chars (no inputSchema)      → score = 60  ← pass
+  Any tool:  description absent or < 10 chars                   → score = 20
+  No tools returned / call fails / any tool missing name        → score = 0
+```
+
+**Implementation requirements:**
+- Send `{"jsonrpc":"2.0","method":"tools/list","id":1,"params":{}}` via `adapter.call(payload=...)`
+- Handle both `{"result":{"tools":[...]}}` and `{"result":[...]}` response shapes
+- Score each tool individually; final score = minimum across all tool scores
+- `inputSchema` typed parameters: all entries in `properties{}` must have a `type` field
+- `result.value` is the count of fully-described tools (description ≥50 chars + typed inputSchema)
+- `result.detail` must list names of inadequate tools (score < 80) if any
+
+**Verifiable by:**
+```bash
+pytest tests/checks/test_tool_description_quality.py -v
+# Must cover: full descriptions, adequate, description-only, short desc, empty list, worst-case
+```
+
+---
+
+### 11. `response_determinism`
+
+**ADR-03 signal class:** Reliability — structural consistency  
+**Pass threshold:** score ≥ 60 (at least 2 of 3 probes structurally identical)
+
+```
+Scoring:
+  All 3 probes have identical structural fingerprint  → score = 100
+  Exactly 2 of 3 probes agree on fingerprint         → score = 60  ← pass threshold
+  All 3 probes have different fingerprints            → score = 0
+  Any probe fails (error / empty body)                → score = 0
+```
+
+**Implementation requirements:**
+- Send exactly 3 sequential probes via `adapter.call()`
+- Compute a structural fingerprint of each response body: recursively collect keys and value types (not values), sorted canonically, depth-limited to 3 levels
+- Compare fingerprints using plurality vote; `most_common_count` = agreement count
+- Value equality is NOT checked — only structural schema (keys + types)
+- `result.value` is the plurality count (0–3)
+- `result.detail` must identify which probe(s) diverged when score < 100
+
+**Verifiable by:**
+```bash
+pytest tests/checks/test_response_determinism.py -v
+# Must cover: all identical, 2-of-3 agree, all different, probe error, value-change-ok
+```
+
+---
+
+### Amendment to `auth_token` — Failure Condition F4
+
+The `auth_token` check now tests four failure conditions (up from three):
+
+```
+F1. Credential-pattern header found in response
+F2. Unauthenticated request returns 200 (or non-401/403)
+F3. Secret found as plaintext URL query parameter
+F4. Syntactically invalid Bearer token accepted (returns 200)
+```
+
+**F4 implementation requirements:**
+- Only runs for MCPAdapter (requires HTTP POST to target)
+- Only runs if F2 did NOT fire (F2 already covers the case of no-auth acceptance)
+- Send HTTP POST with `Authorization: Bearer fynor.reliability.checker.invalid.token.v1`
+- If response is HTTP 200 → failure F4 (token validation not enforced)
+- If response is 401 or 403 → F4 passes (token correctly rejected)
+- Network errors on F4 sub-check are silently skipped (not a failure)
+- Secret token string is a constant, never a real token, never logged as a value
+
+**Scoring model (unchanged from original, 4 failures now possible):**
+`0→100, 1→40, 2→10, ≥3→0`
+
+---
+
 ## Adding a New Check
 
-Adding a check beyond the current 8 requires:
+Adding a check beyond the current 11 requires:
 
 1. A taxonomy entry in `docs/adr/ADR-03-check-taxonomy.md` — signal class,
    agent-specific failure mode, rejected alternatives
