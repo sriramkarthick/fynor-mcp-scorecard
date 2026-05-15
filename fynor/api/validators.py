@@ -10,9 +10,20 @@ arbitrary user-supplied URLs and dispatches HTTP requests from Fynor's
 infrastructure — without SSRF protection, an attacker can probe internal
 AWS services (metadata API, VPC resources, DynamoDB endpoints).
 
+Security scope restrictions (web API only — CLI tool has no such restrictions):
+- "cli" interface type is NOT accepted by the web API. CLI checks execute
+  arbitrary subprocesses; accepting user-supplied CLI invocation strings on
+  the shared hosted server is an unauthenticated RCE vector. Use the local
+  CLI tool (``pip install fynor``) for CLI interface checks.
+- "auth_token" is NOT accepted by the web API. Tokens submitted via the web
+  tool travel through Railway's shared infrastructure and may appear in logs.
+  Authenticated checks require the local CLI tool with FYNOR_AUTH_TOKEN env var.
+
 References:
 - OWASP SSRF Prevention Cheat Sheet
 - AWS Security Blog: "SSRF and the AWS Metadata Service"
+- Decision D1 (plan-eng-review 2026-05-15): CLI removed from web tool
+- Decision D5 (plan-eng-review 2026-05-15): auth_token disabled in web tool
 """
 
 from __future__ import annotations
@@ -31,9 +42,24 @@ __all__ = [
     "validate_check_options",
 ]
 
+# "cli" is intentionally excluded from the web API.
+# CLI interface checks execute subprocesses. Accepting arbitrary CLI invocation
+# strings from the public internet on a shared Railway server is an RCE vector.
+# Use the local ``fynor`` CLI tool (``pip install fynor``) instead.
+# Decision D1 — plan-eng-review 2026-05-15.
 _VALID_INTERFACE_TYPES = frozenset({
-    "mcp", "rest", "graphql", "grpc", "websocket", "soap", "cli"
+    "mcp", "rest", "graphql", "grpc", "websocket", "soap"
 })
+
+# Surface a clear error for callers who try to use "cli" via the web API.
+_WEB_BLOCKED_TYPES: dict[str, str] = {
+    "cli": (
+        "The 'cli' interface type is not available via the web API. "
+        "CLI checks execute subprocesses on the host server, which is an "
+        "unauthenticated remote-code-execution risk. "
+        "Install the local tool instead: pip install fynor"
+    ),
+}
 
 _VALID_CHECK_NAMES = frozenset({
     "latency_p95", "error_rate", "schema", "retry",
@@ -49,8 +75,12 @@ def validate_interface_type(interface_type: str) -> None:
         interface_type: The interface type string to validate.
 
     Raises:
-        ValueError: If the interface type is not in the supported set.
+        ValueError: If the interface type is unknown or blocked for web use.
     """
+    # Blocked types get a specific, actionable error rather than "unknown".
+    if interface_type in _WEB_BLOCKED_TYPES:
+        raise ValueError(_WEB_BLOCKED_TYPES[interface_type])
+
     if interface_type not in _VALID_INTERFACE_TYPES:
         raise ValueError(
             f"Unknown interface type: {interface_type!r}. "
@@ -94,13 +124,16 @@ def validate_check_options(options: dict) -> None:
                 "'options.timeout_ms' must be an integer between 1000 and 60000."
             )
 
-    # Validate auth_token
-    auth_token = options.get("auth_token")
-    if auth_token is not None:
-        if not isinstance(auth_token, str) or not auth_token.strip():
-            raise ValueError("'options.auth_token' must be a non-empty string.")
-        if len(auth_token) > 2048:
-            raise ValueError(
-                "'options.auth_token' must be ≤ 2048 characters. "
-                "If you're using a JWT, ensure it's not expired."
-            )
+    # Reject auth_token — not accepted by the web API.
+    # Tokens submitted via the web tool travel through Railway's shared
+    # infrastructure and may appear in access logs or error traces.
+    # Authenticated checks must use the local CLI tool with the
+    # FYNOR_AUTH_TOKEN environment variable.
+    # Decision D5 — plan-eng-review 2026-05-15.
+    if "auth_token" in options:
+        raise ValueError(
+            "'options.auth_token' is not accepted by the web API. "
+            "Auth tokens may be logged by Railway's shared infrastructure. "
+            "Use the local CLI tool with FYNOR_AUTH_TOKEN env var: "
+            "  FYNOR_AUTH_TOKEN=<token> fynor check --target <url> --type <type>"
+        )
