@@ -8,6 +8,24 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `fynor/interpretation.py` — deterministic trust layer for all 11 checks. For every check
+  and every score band (pass / degraded / fail / na) this module provides: (1) **business
+  impact** — why the finding matters for AI agent operators, in plain English; (2) **remediation**
+  — numbered steps to fix the issue; (3) **reproduce** — the exact curl command the client
+  can run themselves to verify the finding; (4) **refs** — relevant OWASP, RFC, and Fynor
+  docs links. Fully deterministic — no AI API dependency, zero latency cost. Serves as the
+  structured foundation for AI Junction 1 (Month 7).
+- CLI `fynor check` now displays a FINDINGS section below the scorecard for every failing
+  check, showing: WHAT WE MEASURED, BUSINESS IMPACT FOR YOUR AI AGENTS, HOW TO FIX,
+  REPRODUCE IT YOURSELF, and REFERENCES. The reproduce command substitutes the actual
+  target URL automatically.
+- JSON output (`--output json`) now includes `impact`, `remediation`, `reproduce`, and `refs`
+  fields per check result — enabling programmatic consumption by CI/CD pipelines, dashboards,
+  and the hosted API.
+- `tests/test_interpretation.py` — 112 tests enforcing coverage (every check has pass/fail/na
+  interpretations), content quality (non-empty, AI-agent-focused), and structural correctness.
+
 ### Fixed
 - `find_timestamp` false-positive: substring matching caused `events_url`, `status`, and similar
   field names to be misidentified as timestamp fields because they contain a timestamp keyword

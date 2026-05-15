@@ -25,7 +25,20 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+import textwrap
+
 from fynor import __version__
+
+
+def _wrap(text: str, width: int = 70) -> list[str]:
+    """Wrap a plain-text string to the given width, preserving newlines."""
+    lines: list[str] = []
+    for paragraph in text.splitlines():
+        if paragraph.strip():
+            lines.extend(textwrap.wrap(paragraph, width=width))
+        else:
+            lines.append("")
+    return lines
 
 
 @click.group()
@@ -178,10 +191,27 @@ async def _run_check(
     if output == "json":
         import json
         import dataclasses
-        click.echo(json.dumps(dataclasses.asdict(scorecard), indent=2))
+        from fynor.interpretation import interpret_all
+        interpretations = interpret_all(list(results))
+        output_data = dataclasses.asdict(scorecard)
+        # Attach interpretation to each check result in the JSON output
+        output_data["check_results"] = []
+        for r in results:
+            row = dataclasses.asdict(r)
+            interp = interpretations.get(r.check)
+            if interp:
+                row["impact"] = interp.impact
+                row["remediation"] = interp.remediation
+                if interp.reproduce:
+                    row["reproduce"] = interp.reproduce
+                if interp.refs:
+                    row["refs"] = interp.refs
+            output_data["check_results"].append(row)
+        click.echo(json.dumps(output_data, indent=2))
         return
 
     # Terminal output
+    from fynor.interpretation import interpret
     click.echo()
     click.echo("─" * 60)
     click.echo(f"  Target:    {target}")
@@ -197,6 +227,9 @@ async def _run_check(
     click.echo(f"  Performance: {scorecard.performance_score:.1f}/100")
     click.echo()
 
+    # Collect failing checks for expanded detail section below the summary table
+    failing: list = []
+
     for r in results:
         if r.result == "na":
             status = "-"
@@ -204,6 +237,8 @@ async def _run_check(
         else:
             status = "✓" if r.passed else "✗"
             score_str = f"{r.score:3d}"
+            if not r.passed:
+                failing.append(r)
         click.echo(f"  {status} {r.check.ljust(22)} {score_str}  {r.detail[:60]}")
 
     click.echo("─" * 60)
@@ -215,6 +250,46 @@ async def _run_check(
         )
     else:
         click.echo(f"\n  {scorecard.summary}")
+
+    # ── Expanded findings: evidence, impact, remediation ──────────────────
+    if failing:
+        click.echo()
+        click.echo("─" * 60)
+        click.echo("  FINDINGS — what we measured, why it matters, how to fix it")
+        click.echo("─" * 60)
+        for r in failing:
+            interp = interpret(r)
+            click.echo()
+            marker = "⚠ " if r.check == "auth_token" and r.score == 0 else "✗ "
+            click.echo(f"  {marker}{r.check.upper()}  (score {r.score}/100)")
+            click.echo()
+            click.echo(f"  WHAT WE MEASURED")
+            # Wrap detail at 72 chars
+            detail_lines = _wrap(r.detail, 70)
+            for line in detail_lines:
+                click.echo(f"    {line}")
+            if interp:
+                click.echo()
+                click.echo(f"  BUSINESS IMPACT FOR YOUR AI AGENTS")
+                for line in _wrap(interp.impact, 70):
+                    click.echo(f"    {line}")
+                click.echo()
+                click.echo(f"  HOW TO FIX")
+                for line in interp.remediation.splitlines():
+                    click.echo(f"    {line}")
+                if interp.reproduce:
+                    click.echo()
+                    click.echo(f"  REPRODUCE IT YOURSELF")
+                    for line in interp.reproduce.splitlines():
+                        click.echo(f"    {line.replace('<TARGET_URL>', target)}")
+                if interp.refs:
+                    click.echo()
+                    click.echo(f"  REFERENCES")
+                    for ref in interp.refs:
+                        click.echo(f"    {ref}")
+            click.echo()
+            click.echo("  " + "·" * 56)
+        click.echo()
 
     click.echo()
 
