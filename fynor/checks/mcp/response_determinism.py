@@ -20,29 +20,13 @@ result.value: count of probes matching the plurality fingerprint (0–3).
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any
 
 from fynor.adapters.base import BaseAdapter
+from fynor.checks.shared import key_fingerprint as _key_fingerprint
 from fynor.history import CheckResult
 
 CHECK_NAME = "response_determinism"
 _PROBE_COUNT = 3
-
-
-def _key_fingerprint(obj: Any, depth: int = 0) -> str:
-    """Canonical structural fingerprint of an object (keys + types, not values)."""
-    if depth > 3:
-        return type(obj).__name__
-    if isinstance(obj, dict):
-        parts = sorted(
-            f"{k}:{_key_fingerprint(v, depth + 1)}" for k, v in obj.items()
-        )
-        return "{" + ",".join(parts) + "}"
-    if isinstance(obj, list):
-        if not obj:
-            return "[]"
-        return f"[{_key_fingerprint(obj[0], depth + 1)}]"
-    return type(obj).__name__
 
 
 async def check_response_determinism(adapter: BaseAdapter) -> CheckResult:

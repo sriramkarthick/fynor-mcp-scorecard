@@ -20,19 +20,15 @@ result.detail: human-readable explanation including detected timestamp field nam
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Any
 
 from fynor.adapters.base import BaseAdapter
+from fynor.checks.shared import find_timestamp as _find_timestamp
+from fynor.checks.shared import parse_timestamp as _parse_timestamp
 from fynor.history import CheckResult
 
 CHECK_NAME = "data_freshness"
-
-_TIMESTAMP_KEYS = {
-    "timestamp", "ts", "time", "datetime", "created_at", "logged_at",
-    "event_time", "occurred_at", "recorded_at", "updated_at", "modified_at",
-    "generated_at", "fetched_at", "collected_at", "observed_at",
-}
 
 _FRESH_5MIN = 5.0
 _FRESH_60MIN = 60.0
@@ -47,49 +43,6 @@ def _score_from_age_minutes(age_minutes: float) -> int:
     if age_minutes <= _FRESH_24H:
         return 60
     return 20
-
-
-def _find_timestamp(obj: Any, depth: int = 0) -> tuple[str | None, str | None]:
-    """Recursively search obj for a timestamp field. Returns (field_name, raw_value)."""
-    if depth > 4:
-        return None, None
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            if any(ts_key in key.lower() for ts_key in _TIMESTAMP_KEYS):
-                if isinstance(value, (str, int, float)):
-                    return key, str(value)
-            found_key, found_val = _find_timestamp(value, depth + 1)
-            if found_key is not None:
-                return found_key, found_val
-    elif isinstance(obj, list) and len(obj) > 0:
-        return _find_timestamp(obj[0], depth + 1)
-    return None, None
-
-
-def _parse_timestamp(raw: str) -> datetime | None:
-    """Parse a timestamp string or numeric epoch value."""
-    try:
-        val = float(raw)
-        if val > 1e12:
-            val /= 1000.0
-        return datetime.fromtimestamp(val, tz=timezone.utc)
-    except (ValueError, OSError):
-        pass
-    for fmt in (
-        "%Y-%m-%dT%H:%M:%S.%f%z",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S",
-    ):
-        try:
-            dt = datetime.strptime(raw, fmt)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt
-        except ValueError:
-            continue
-    return None
 
 
 async def check_data_freshness(adapter: BaseAdapter) -> CheckResult:
