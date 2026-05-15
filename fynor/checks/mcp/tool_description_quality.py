@@ -74,6 +74,14 @@ async def check_tool_description_quality(adapter: BaseAdapter) -> CheckResult:
         )
 
     body = response.body
+    if not isinstance(body, dict):
+        return CheckResult(
+            check=CHECK_NAME, passed=False, score=0, value=0,
+            detail=(
+                f"tools/list returned non-JSON body (type={type(body).__name__!r}). "
+                "MCP servers must return application/json with a JSON-RPC 2.0 envelope."
+            ),
+        )
     result_data = body.get("result", {})
     if isinstance(result_data, dict):
         tools = result_data.get("tools", [])

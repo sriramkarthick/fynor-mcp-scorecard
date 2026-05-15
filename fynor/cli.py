@@ -16,6 +16,15 @@ import sys
 
 import click
 
+# Reconfigure stdout/stderr to UTF-8 on platforms where the default encoding
+# is not UTF-8 (e.g. Windows cmd.exe which defaults to cp1252). Check detail
+# strings contain ≤, ─, ✓, ✗ — these need UTF-8 to display correctly.
+# errors="replace" ensures the CLI never crashes on an unencodable character.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from fynor import __version__
 
 
