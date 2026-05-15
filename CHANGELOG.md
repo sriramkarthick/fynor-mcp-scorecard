@@ -20,10 +20,12 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   workflow takes 19.2s" not "latency is too high". Auth fail quotes the actual server response
   body from the probe. Error rate fail shows the real HTTP status code distribution.
   Serves as the structured foundation for AI Junction 1 (Month 7).
-- `fynor/history.py` — added `evidence: dict | None` field to `CheckResult`. Populated by
-  latency, error_rate, and auth_token checks with raw probe data (response codes, timing
-  distribution, actual server response previews). All other checks default to `None` (safe
-  backward-compatible default). Never records secret values — only names and status codes.
+- `fynor/history.py` — added `evidence: dict[str, Any] | None` field to `CheckResult`. All 11
+  checks now populate `evidence` with check-specific raw proof data: latency distributions
+  (sorted array, P95 index, min/max), HTTP status code tallies, response body previews, field
+  names detected, schema violations, retry probe scores, rate-limit headers, timeout
+  observations, log endpoint paths, freshness field values, tool description details, and
+  determinism fingerprints. Never records secret values — only names and status codes.
 - CLI `fynor check` now displays a FINDINGS section below the scorecard for every failing
   check, showing: WHAT WE MEASURED, BUSINESS IMPACT FOR YOUR AI AGENTS, HOW TO FIX,
   REPRODUCE IT YOURSELF, and REFERENCES. The reproduce command substitutes the actual
@@ -31,8 +33,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - JSON output (`--output json`) now includes `impact`, `remediation`, `reproduce`, and `refs`
   fields per check result — enabling programmatic consumption by CI/CD pipelines, dashboards,
   and the hosted API.
-- `tests/test_interpretation.py` — 112 tests enforcing coverage (every check has pass/fail/na
-  interpretations), content quality (non-empty, AI-agent-focused), and structural correctness.
+- `tests/test_interpretation.py` — 116 tests enforcing coverage (every check has pass/fail/na
+  interpretations), content quality (non-empty, AI-agent-focused), structural correctness, and
+  client-specificity (two clients with different P95 values receive different impact text — not
+  the same generic template).
 
 ### Fixed
 - `find_timestamp` false-positive: substring matching caused `events_url`, `status`, and similar
