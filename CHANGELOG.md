@@ -9,13 +9,21 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- `fynor/interpretation.py` — deterministic trust layer for all 11 checks. For every check
+- `fynor/interpretation.py` — client-specific trust layer for all 11 checks. For every check
   and every score band (pass / degraded / fail / na) this module provides: (1) **business
-  impact** — why the finding matters for AI agent operators, in plain English; (2) **remediation**
-  — numbered steps to fix the issue; (3) **reproduce** — the exact curl command the client
-  can run themselves to verify the finding; (4) **refs** — relevant OWASP, RFC, and Fynor
-  docs links. Fully deterministic — no AI API dependency, zero latency cost. Serves as the
-  structured foundation for AI Junction 1 (Month 7).
+  impact** — computed from the client's actual measured values, not a generic template;
+  (2) **remediation** — numbered steps specific to the failure mode detected; (3) **reproduce**
+  — the exact curl command substituted with the client's URL and the actual probe token used;
+  (4) **refs** — OWASP, RFC, and Fynor docs links. Fully deterministic — no AI API dependency,
+  zero latency cost. Interpretations are factory functions that use `result.value` and
+  `result.evidence` to reference the client's real numbers: "your P95 is 3,841ms, a 5-step
+  workflow takes 19.2s" not "latency is too high". Auth fail quotes the actual server response
+  body from the probe. Error rate fail shows the real HTTP status code distribution.
+  Serves as the structured foundation for AI Junction 1 (Month 7).
+- `fynor/history.py` — added `evidence: dict | None` field to `CheckResult`. Populated by
+  latency, error_rate, and auth_token checks with raw probe data (response codes, timing
+  distribution, actual server response previews). All other checks default to `None` (safe
+  backward-compatible default). Never records secret values — only names and status codes.
 - CLI `fynor check` now displays a FINDINGS section below the scorecard for every failing
   check, showing: WHAT WE MEASURED, BUSINESS IMPACT FOR YOUR AI AGENTS, HOW TO FIX,
   REPRODUCE IT YOURSELF, and REFERENCES. The reproduce command substitutes the actual

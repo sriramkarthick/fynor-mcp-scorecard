@@ -13,7 +13,48 @@ from __future__ import annotations
 import pytest
 
 from fynor.history import CheckResult
-from fynor.interpretation import CheckInterpretation, interpret, interpret_all, _TABLE
+from fynor.interpretation import CheckInterpretation, interpret, interpret_all, _TABLE, _InterpEntry
+
+
+# ---------------------------------------------------------------------------
+# Helper: resolve a _TABLE entry (static or factory) to a CheckInterpretation.
+# Factory entries require a CheckResult — supply a minimal synthetic one.
+# ---------------------------------------------------------------------------
+
+def _resolve(key: tuple[str, str], entry: _InterpEntry) -> CheckInterpretation:
+    """Call factory functions with a minimal CheckResult; return statics directly."""
+    if isinstance(entry, CheckInterpretation):
+        return entry
+    check_name, band = key
+    score = 0 if band == "fail" else 100 if band == "pass" else 60
+    result_arg = "na" if band == "na" else ""
+    r = CheckResult(
+        check=check_name,
+        passed=(band == "pass"),
+        score=score,
+        value=500.0 if check_name == "latency_p95" else 3.0 if check_name == "error_rate" else 1,
+        detail="test detail",
+        result=result_arg,
+        evidence={
+            # latency evidence
+            "probe_count": 20, "successful_count": 20, "error_count": 0,
+            "p95_ms": 500.0, "min_ms": 200.0, "max_ms": 800.0,
+            "pass_threshold_ms": 1000.0,
+            # error_rate evidence
+            "error_rate_pct": 3.0, "rate_limited_count": 0,
+            "status_code_distribution": {"200": 47, "500": 3},
+            "first_error_status": 500,
+            "first_error_response_preview": "Internal Server Error",
+            "pass_threshold_pct": 5.0,
+            # auth evidence
+            "probe_token_used": "fynor.reliability.checker.invalid.token.v1",
+            "f1_leaked_header_names": [], "f3_secret_param_names": [],
+            "f2_ran": True, "f2_unauth_status": 200, "f2_response_preview": "{}",
+            "f4_ran": True, "f4_response_status": 200, "f4_response_preview": "{}",
+            "f4_response_content_type": "application/json",
+        },
+    )
+    return entry(r)
 
 
 # ---------------------------------------------------------------------------
@@ -121,18 +162,18 @@ class TestTableCoverage:
 class TestInterpretationContent:
     @pytest.mark.parametrize("key", list(_TABLE.keys()))
     def test_impact_is_non_empty(self, key: tuple[str, str]) -> None:
-        interp = _TABLE[key]
+        interp = _resolve(key, _TABLE[key])
         assert interp.impact.strip(), f"Empty impact for {key}"
 
     @pytest.mark.parametrize("key", list(_TABLE.keys()))
     def test_remediation_is_non_empty(self, key: tuple[str, str]) -> None:
-        interp = _TABLE[key]
+        interp = _resolve(key, _TABLE[key])
         assert interp.remediation.strip(), f"Empty remediation for {key}"
 
     @pytest.mark.parametrize("key", [k for k in _TABLE if k[1] == "fail"])
     def test_fail_impact_mentions_ai_agents(self, key: tuple[str, str]) -> None:
         """Fail interpretations must explain consequences for AI agents specifically."""
-        interp = _TABLE[key]
+        interp = _resolve(key, _TABLE[key])
         text = interp.impact.lower()
         assert "agent" in text or "ai" in text, (
             f"Fail impact for {key} doesn't mention 'agent' or 'AI' — "
@@ -141,15 +182,79 @@ class TestInterpretationContent:
 
     def test_auth_fail_has_reproduce_command(self) -> None:
         """Auth failure must include a curl reproduce command — it's the most critical check."""
-        interp = _TABLE[("auth_token", "fail")]
+        interp = _resolve(("auth_token", "fail"), _TABLE[("auth_token", "fail")])
         assert interp.reproduce, "auth_token fail must have a reproduce command"
         assert "curl" in interp.reproduce
 
     def test_auth_fail_has_owasp_reference(self) -> None:
-        interp = _TABLE[("auth_token", "fail")]
+        interp = _resolve(("auth_token", "fail"), _TABLE[("auth_token", "fail")])
         assert interp.refs is not None
         assert any("owasp" in ref.lower() for ref in interp.refs), (
             "auth_token fail must reference OWASP API Security"
+        )
+
+    def test_latency_fail_uses_actual_measured_value(self) -> None:
+        """latency_p95 fail must reference the client's real P95 in the impact text."""
+        r = CheckResult(
+            check="latency_p95", passed=False, score=0, value=3841.0, detail="",
+            evidence={"probe_count": 20, "successful_count": 20, "error_count": 0,
+                      "p95_ms": 3841.0, "min_ms": 1203.0, "max_ms": 4102.0, "pass_threshold_ms": 1000.0},
+        )
+        interp = interpret(r)
+        assert interp is not None
+        assert "3841" in interp.impact, "Impact must quote the client's actual P95 value"
+        assert "1203" in interp.impact, "Impact must quote the client's actual min latency"
+
+    def test_two_clients_different_p95_get_different_impact(self) -> None:
+        """Proves interpretations are client-specific, not generic templates."""
+        def _make_lat(p95: float) -> CheckResult:
+            return CheckResult(
+                check="latency_p95", passed=False, score=0, value=p95, detail="",
+                evidence={"probe_count": 20, "successful_count": 20, "error_count": 0,
+                          "p95_ms": p95, "min_ms": 100.0, "max_ms": p95 + 200, "pass_threshold_ms": 1000.0},
+            )
+        a = interpret(_make_lat(3841.0))
+        b = interpret(_make_lat(2103.0))
+        assert a is not None and b is not None
+        assert a.impact != b.impact, (
+            "Two clients with different P95 values must receive different impact text. "
+            "Identical text means the interpretation is still a generic template."
+        )
+
+    def test_error_rate_fail_includes_server_status_distribution(self) -> None:
+        """error_rate fail must reference the actual status codes the server returned."""
+        r = CheckResult(
+            check="error_rate", passed=False, score=0, value=12.0, detail="",
+            evidence={
+                "probe_count": 50, "error_count": 6, "rate_limited_count": 0,
+                "error_rate_pct": 12.0,
+                "status_code_distribution": {"200": 44, "503": 6},
+                "first_error_status": 503,
+                "first_error_response_preview": "Service Unavailable",
+                "pass_threshold_pct": 5.0,
+            },
+        )
+        interp = interpret(r)
+        assert interp is not None
+        assert "503" in interp.impact or "503" in interp.remediation, (
+            "error_rate impact must include the actual HTTP status codes returned by the server"
+        )
+
+    def test_auth_fail_quotes_exact_token_sent(self) -> None:
+        """auth_token fail must quote the exact token Fynor sent in the impact."""
+        token = "fynor.reliability.checker.invalid.token.v1"
+        r = CheckResult(
+            check="auth_token", passed=False, score=0, value=1, detail="",
+            evidence={
+                "probe_token_used": token, "f4_ran": True, "f4_response_status": 200,
+                "f4_response_preview": '{"result": "tool data"}',
+                "f2_ran": False, "f1_leaked_header_names": [], "f3_secret_param_names": [],
+            },
+        )
+        interp = interpret(r)
+        assert interp is not None
+        assert token in interp.impact, (
+            "auth_token fail impact must quote the exact token that was sent to the server"
         )
 
 

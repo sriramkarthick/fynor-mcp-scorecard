@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 # Default location: ~/.fynor/history.jsonl
@@ -45,6 +46,10 @@ class CheckResult:
     result: str = ""    # "pass" | "fail" | "na"
                         # "na" = not applicable for this interface type (excluded from scoring).
                         # Empty string = inferred from passed (backward compat for all MCP checks).
+    evidence: dict[str, Any] | None = None
+                        # Raw data collected from the client's specific server during this check run.
+                        # Every value here came from an actual HTTP response or measurement —
+                        # not a template. Used to show client-specific proof in FINDINGS output.
 
 
 def append_result(
