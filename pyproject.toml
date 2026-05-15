@@ -33,6 +33,7 @@ dependencies = [
     "httpx>=0.27",
     "click>=8.1",
     "rich>=13.0",
+    "grpcio>=1.60",    # gRPC async adapter (grpc.aio) — Decision D9
 ]
 
 [project.optional-dependencies]
