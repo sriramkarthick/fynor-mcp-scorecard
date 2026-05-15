@@ -42,6 +42,9 @@ class CheckResult:
     score: int          # 0–100
     value: float | str | None = None   # raw measured value
     detail: str = ""    # plain-English explanation
+    result: str = ""    # "pass" | "fail" | "na"
+                        # "na" = not applicable for this interface type (excluded from scoring).
+                        # Empty string = inferred from passed (backward compat for all MCP checks).
 
 
 def append_result(
