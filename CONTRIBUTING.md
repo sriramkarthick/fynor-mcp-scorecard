@@ -160,6 +160,8 @@ You will receive a response within 48 hours.
 
 Be direct. Be respectful. Argue about ideas, not people. Disagreements about ADR amendments are expected and welcome — use evidence, not authority.
 
+See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the full policy and enforcement process.
+
 ---
 
 ## License

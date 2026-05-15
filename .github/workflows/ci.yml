@@ -35,16 +35,21 @@ jobs:
         run: mypy fynor/ --strict
 
   test:
-    name: Test (pytest + coverage)
+    name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
 
       - name: Install dependencies
@@ -65,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-xml
+          name: coverage-xml-py${{ matrix.python-version }}
           path: coverage.xml
 
   security:
@@ -80,8 +85,11 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install pip-audit
-        run: pip install pip-audit
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pip-audit
 
-      - name: Audit dependencies
-        run: pip-audit --requirement <(pip install -e ".[dev]" --dry-run -q 2>&1 | grep -v "^$" || true) || pip-audit
+      - name: Audit dependencies for known vulnerabilities
+        run: pip-audit --skip-editable

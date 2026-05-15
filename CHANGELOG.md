@@ -8,6 +8,22 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `find_timestamp` false-positive: substring matching caused `events_url`, `status`, and similar
+  field names to be misidentified as timestamp fields because they contain a timestamp keyword
+  (e.g. "ts") as a substring. Switched to word-boundary semantics: a key matches only when its
+  lowercase form is in `_TIMESTAMP_KEYS` exactly, or when an underscore-separated segment of
+  the lowercase key is in `_TIMESTAMP_KEYS`. Added 8 regression tests covering the GitHub API
+  response shape that triggered the bug. (`fynor/checks/shared.py`)
+- REST N/A gap: `schema`, `retry`, and `tool_description_quality` are JSON-RPC 2.0 checks that
+  do not apply to REST, GraphQL, or gRPC targets. Previously they scored 0 (FAIL), which
+  inflated failure counts and depressed grades for non-MCP targets. They are now marked
+  `result="na"` for non-MCP interface types and excluded from scoring and the failure summary.
+  CLI display shows `- N/A` instead of `✗   0` for these checks. (`fynor/cli.py`,
+  `fynor/scorer.py`)
+
+---
+
 ## [0.2.0-dev] — 2026-05-14
 
 ### Added
