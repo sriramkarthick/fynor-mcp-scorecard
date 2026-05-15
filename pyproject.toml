@@ -35,6 +35,8 @@ dependencies = [
     "rich>=13.0",
     "grpcio>=1.60",    # gRPC async adapter (grpc.aio) — Decision D9
     "websockets>=12.0", # WebSocket adapter (async) — Decision D2
+    "fastapi>=0.100",  # Hosted API framework — Month 4
+    "boto3>=1.26",     # DynamoDB client — Month 4
 ]
 
 [project.optional-dependencies]
