@@ -1,7 +1,7 @@
 # Fynor — Deployment Architecture
 
-**Last updated:** 2026-05-13  
-**Version:** v1.0 (target for fynor.tech launch, Month 12)
+**Last updated:** 2026-05-15  
+**Version:** v1.1 — added Cloudflare rate limiting layer (Phase A) and Railway deployment (D4)
 
 ---
 
@@ -17,15 +17,69 @@ Fynor has two deployment modes:
 
 This document describes the hosted architecture.
 
+### Phase A vs Phase B
+
+| | Phase A (Month 4–5) | Phase B (Month 6+) |
+|---|---|---|
+| **Compute** | Railway (PaaS) | AWS ECS Fargate |
+| **Rate limiting** | Cloudflare (primary) + DynamoDB (secondary) | AWS API Gateway + Cloudflare |
+| **Database** | DynamoDB on-demand | DynamoDB on-demand |
+| **Config** | `infra/railway/railway.toml` + Cloudflare dashboard | Terraform (`infra/`) |
+
+Phase A (Railway) is explicitly a stepping stone for the demand probe — not the
+long-term architecture. The Cloudflare layer persists into Phase B.
+
 ---
 
 ## Architecture Diagram
+
+### Phase A — Railway + Cloudflare (Month 4–5)
 
 ```
 Developer / CI / GitHub Action
          │
          │  HTTPS POST /api/v1/check
          ▼
+┌─────────────────────────────────────────────────────┐
+│              Cloudflare (Layer 0 — PRIMARY)         │
+│   Rate limiting: 100 req/30s per IP                │
+│   WAF: block empty User-Agent on POST /check        │
+│   DNS proxy: api.fynor.tech → Railway CNAME         │
+│                                                     │
+│   Decision D4: Cloudflare runs BEFORE Railway.      │
+│   If DynamoDB is down, Cloudflare still blocks.     │
+│   Config: infra/cloudflare/  SETUP: infra/cloudflare/SETUP.md  │
+└─────────────────────────┬───────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│              Railway (Phase A compute)              │
+│   FastAPI app · uvicorn · 2 workers                 │
+│   Auto-sleep on idle (warm-up probe mitigates this) │
+│   Config: infra/railway/railway.toml                │
+└─────────────────────────┬───────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│   DynamoDB (SECONDARY rate limit + result storage)  │
+│   PK=ratelimit#{ip_hash}, TTL=now+30s               │
+│   Fallback if Cloudflare misconfigured; NOT primary │
+└─────────────────────────────────────────────────────┘
+```
+
+### Phase B — AWS (Month 6+, full production)
+
+```
+Developer / CI / GitHub Action
+         │
+         │  HTTPS POST /api/v1/check
+         ▼
+┌─────────────────────────────────────────────────────┐
+│              Cloudflare (Layer 0 — persists)        │
+│   Rate limiting · WAF · DDoS protection             │
+└─────────────────────────┬───────────────────────────┘
+                          │
+                          ▼
 ┌─────────────────────────────────────────────────────┐
 │                  API Gateway (AWS API Gateway)       │
 │   Rate limiting · Auth · Request validation         │

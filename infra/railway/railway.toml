@@ -1,0 +1,46 @@
+# infra/railway/railway.toml — Railway deployment configuration for Fynor API
+#
+# Phase A (Month 4-5): Railway hosts the FastAPI check service.
+# Cloudflare sits in front (rate limiting). See infra/cloudflare/.
+#
+# Deploy: copy this file to the repo root as railway.toml before deploying.
+# Railway detects it automatically on git push.
+#
+# Reference: https://docs.railway.app/reference/config-as-code
+
+[build]
+builder = "nixpacks"
+buildCommand = "pip install -e .[dev]"
+
+[deploy]
+startCommand = "uvicorn fynor.api.main:app --host 0.0.0.0 --port $PORT --workers 2"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# ---------------------------------------------------------------------------
+# Environment variables (set actual values in Railway dashboard, not here)
+# ---------------------------------------------------------------------------
+# Required:
+#   FYNOR_ENV              = "production"
+#   FYNOR_HMAC_SECRET      = "<base64-encoded 32-byte key>"   (see fynor/api/auth.py)
+#   AWS_ACCESS_KEY_ID      = "<IAM key for DynamoDB>"
+#   AWS_SECRET_ACCESS_KEY  = "<IAM secret>"
+#   AWS_REGION             = "us-east-1"
+#   DYNAMODB_TABLE_RESULTS = "fynor-check-results-prod"
+#   DYNAMODB_TABLE_RATELIMIT = "fynor-ratelimit-prod"
+#
+# Security: Railway injects these as environment variables at runtime.
+# They are never written to this file or committed to git.
+#
+# Cloudflare proxy trust:
+#   Railway sees Cloudflare IPs as the source IP.
+#   Real client IP is in the CF-Connecting-IP header.
+#   FastAPI must read CF-Connecting-IP for rate limit logging.
+#   Set TRUSTED_PROXY_HEADER = "CF-Connecting-IP" in Railway environment.
+
+[deploy.environmentVariables]
+FYNOR_ENV = "production"
+TRUSTED_PROXY_HEADER = "CF-Connecting-IP"
+# Real secrets injected via Railway dashboard — not here

@@ -63,6 +63,10 @@ servers graded as failing).
 **Description:** The burst test traffic (50 requests at 20 req/s) looks like a
 DDoS from the server's perspective. The server blocks Fynor's IP range.
 
+For Phase A (Railway), this is exacerbated: Railway uses shared egress IPs across
+all tenants. Stripe, GitHub, OpenAI, and other major APIs already block Railway's
+IP range, making checks against those targets inaccurate regardless of check design.
+
 **Impact:** Check run fails with connection errors, producing inaccurate results.
 Damages relationship with target server operator.
 
@@ -72,8 +76,35 @@ Damages relationship with target server operator.
 - User-Agent header identifies Fynor explicitly: `Fynor-Reliability-Checker/1.0`
 - Terms of Service require users to have permission to run checks against targets
   they do not own
+- **Phase A Railway limitation disclosed in UI (Decision D11 — 2026-05-15):**
+  Results page shows: "Checks against Stripe, GitHub, OpenAI may be less accurate —
+  their APIs block Railway's shared egress IPs. Use the CLI tool for accurate results."
+- **Phase B fix:** ECS Fargate tasks use Fynor-owned static NAT Gateway IPs.
+  Operators can whitelist this range once it's published.
 
-**Status:** Active — IP range whitelist documentation required before hosted service launch.
+**Status:** Active — Phase A limitation documented in UI. Phase B requires static IP publication.
+
+---
+
+### T5 — Rate Limiter Bypass via DynamoDB Overload (High × High = Critical) [NEW]
+
+**Description:** The original design used DynamoDB as the sole rate limiter.
+An attacker who floods DynamoDB (or causes DynamoDB to become unavailable) would
+disable rate limiting entirely ("fail open"). This allows unlimited POST /check
+requests, each of which makes outbound HTTP requests from Fynor's infrastructure.
+
+**Impact:** Fynor's infrastructure is weaponised as a DDoS amplifier. Each check
+request can trigger up to 8 outbound calls to the target. Cost also scales unboundedly.
+
+**Mitigation (Decision D4 — 2026-05-15):**
+- **Primary:** Cloudflare rate limiting — 100 req/30s per IP, runs BEFORE Railway,
+  independent of DynamoDB availability. Config: `infra/cloudflare/`.
+- **Secondary:** DynamoDB rate limit table (PK=ratelimit#{ip_hash}, TTL=now+30s).
+  Catches edge cases not blocked by Cloudflare (e.g. Cloudflare PoP counting).
+- The two layers are independent. DynamoDB down → Cloudflare still blocks.
+  Cloudflare misconfigured → DynamoDB catches the overflow.
+
+**Status:** Mitigated — Cloudflare primary layer implemented in `infra/cloudflare/`.
 
 ---
 
