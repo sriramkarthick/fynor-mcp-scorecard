@@ -21,6 +21,14 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   `result="na"` for non-MCP interface types and excluded from scoring and the failure summary.
   CLI display shows `- N/A` instead of `✗   0` for these checks. (`fynor/cli.py`,
   `fynor/scorer.py`)
+- API dispatch parity: `_dispatch_checks` in the hosted API only ran the original 8 checks,
+  silently omitting `data_freshness`, `tool_description_quality`, and `response_determinism`
+  added in v0.2. The API and CLI now produce identical 11-check scorecards. (`fynor/api/main.py`)
+- `apply_profile` N/A preservation: when a profile threshold existed for a check that was
+  already marked `result="na"` (e.g. `tool_description_quality` under the security profile on
+  a REST target), the rebuilt `CheckResult` dropped the `result` field, causing the N/A check
+  to silently re-enter scoring as a 0-score failure. Fixed by passing `result=r.result` in the
+  constructor. Added 17 profile unit tests (`tests/test_profiles.py`). (`fynor/profiles.py`)
 
 ---
 

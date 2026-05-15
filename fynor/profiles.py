@@ -116,6 +116,7 @@ def apply_profile(results: list[CheckResult], profile: CheckProfile) -> list[Che
                 score=r.score,
                 value=r.value,
                 detail=r.detail,
+                result=r.result,
             ))
         else:
             updated.append(r)

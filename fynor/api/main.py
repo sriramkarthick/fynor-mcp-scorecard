@@ -360,6 +360,9 @@ async def _dispatch_checks(adapter: Any, interface_type: str, options: dict) -> 
     from fynor.checks.mcp.rate_limit import check_rate_limit
     from fynor.checks.mcp.timeout import check_timeout
     from fynor.checks.mcp.log_completeness import check_log_completeness
+    from fynor.checks.mcp.data_freshness import check_data_freshness
+    from fynor.checks.mcp.tool_description_quality import check_tool_description_quality
+    from fynor.checks.mcp.response_determinism import check_response_determinism
 
     check_fns = [
         check_latency_p95,
@@ -370,6 +373,9 @@ async def _dispatch_checks(adapter: Any, interface_type: str, options: dict) -> 
         check_rate_limit,
         check_timeout,
         check_log_completeness,
+        check_data_freshness,
+        check_tool_description_quality,
+        check_response_determinism,
     ]
 
     subset = options.get("checks")
