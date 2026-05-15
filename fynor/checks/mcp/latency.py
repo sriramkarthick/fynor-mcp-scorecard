@@ -69,6 +69,12 @@ async def check_latency_p95(adapter: BaseAdapter) -> CheckResult:
                 f"succeeded (need ≥{_MIN_SUCCESSFUL}). "
                 "P95 cannot be reliably computed — investigate connectivity."
             ),
+            evidence={
+                "probe_count": _N_REQUESTS,
+                "successful_count": len(latencies),
+                "error_count": error_count,
+                "latencies_ms": [round(ms, 1) for ms in sorted(latencies)],
+            },
         )
 
     # P95: sort the 20 values, take the 19th value (0-indexed = index 18).
@@ -92,6 +98,19 @@ async def check_latency_p95(adapter: BaseAdapter) -> CheckResult:
             f"requests{error_note}. "
             f"Pass threshold: ≤{_PASS_THRESHOLD_MS:.0f}ms."
         ),
+        evidence={
+            "probe_count": _N_REQUESTS,
+            "successful_count": len(latencies),
+            "error_count": error_count,
+            # All 20 measured latencies in sorted order — these are the real numbers
+            # from this client's server, not averages or estimates.
+            "latencies_ms_sorted": [round(ms, 1) for ms in sorted_latencies],
+            "p95_ms": round(p95, 1),
+            "p95_index": p95_idx,          # which position in sorted array is P95
+            "min_ms": round(sorted_latencies[0], 1),
+            "max_ms": round(sorted_latencies[-1], 1),
+            "pass_threshold_ms": _PASS_THRESHOLD_MS,
+        },
     )
 
 

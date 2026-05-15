@@ -18,6 +18,8 @@ to fail — agents hit the same code path repeatedly.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fynor.adapters.base import BaseAdapter
 from fynor.history import CheckResult
 
@@ -33,6 +35,7 @@ async def check_schema(adapter: BaseAdapter) -> CheckResult:
     """
     worst_issues: list[str] = []
     worst_score = 100
+    worst_body_preview: dict[str, str] = {}
 
     for _ in range(3):
         response = await adapter.call()
@@ -50,6 +53,12 @@ async def check_schema(adapter: BaseAdapter) -> CheckResult:
                     "MCP requires a JSON-RPC 2.0 envelope on every response. "
                     "Ensure Content-Type: application/json is set."
                 ),
+                evidence={
+                    "probe_count": 3,
+                    "body_type": type(body).__name__,
+                    "body_preview": str(body)[:200],
+                    "violations": ["response body is not a JSON object"],
+                },
             )
 
         issues = _validate_envelope(body)
@@ -58,6 +67,7 @@ async def check_schema(adapter: BaseAdapter) -> CheckResult:
         if score < worst_score:
             worst_score = score
             worst_issues = issues
+            worst_body_preview = {k: str(v)[:80] for k, v in body.items()}
 
     passed = worst_score >= 60
     detail = (
@@ -72,10 +82,17 @@ async def check_schema(adapter: BaseAdapter) -> CheckResult:
         score=worst_score,
         value=len(worst_issues),
         detail=detail,
+        evidence={
+            "probe_count": 3,
+            # Actual fields present in the worst-case response from this server
+            "worst_probe_fields": worst_body_preview if worst_issues else None,
+            # Specific JSON-RPC 2.0 violations found in this server's response
+            "violations": worst_issues,
+        },
     )
 
 
-def _validate_envelope(body: dict) -> list[str]:
+def _validate_envelope(body: dict[str, Any]) -> list[str]:
     """Return a list of JSON-RPC 2.0 envelope violations."""
     issues: list[str] = []
 

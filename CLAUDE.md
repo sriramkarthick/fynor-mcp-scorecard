@@ -1,6 +1,6 @@
 # CLAUDE.md — Fynor Agent Instructions
 
-**Last updated:** 2026-05-13
+**Last updated:** 2026-05-16
 
 This file is the agent harness for the Fynor reliability platform repository.
 Read it first. It tells you which documents govern which decisions, how to route
@@ -18,8 +18,8 @@ an amendment — do not silently deviate.
 |----------|--------------|--------|
 | `docs/adr/ADR-01-architecture-principles.md` | Which decisions are automation vs AI junction | LOCKED |
 | `docs/adr/ADR-02-scoring-weights.md` | Scoring weights (30/40/30) and security cap rule | LOCKED |
-| `docs/adr/ADR-03-check-taxonomy.md` | Exactly 8 checks, no more without taxonomy entry | LOCKED |
-| `docs/adr/ADR-04-threshold-justification.md` | z=2.5, 70%, 3× thresholds with citations | LOCKED |
+| `docs/adr/ADR-03-check-taxonomy.md` | Exactly 11 checks, no more without taxonomy entry | LOCKED (Amendment 1) |
+| `docs/adr/ADR-04-threshold-justification.md` | z=2.5, 70%, 3× thresholds with citations | LOCKED (Amendment 1) |
 
 ---
 
@@ -28,15 +28,17 @@ an amendment — do not silently deviate.
 ### Writing or modifying a check (`fynor/checks/`)
 1. Read `docs/adr/ADR-03-check-taxonomy.md` — is this check in the taxonomy?
 2. Read `docs/tasks/check-implementation-contract.md` — the function contract
-3. Every check must return `CheckResult(score: int, passed: bool, detail: str)`
+3. Every check must return `CheckResult(check: str, passed: bool, score: int, value: ..., detail: str, result: str, evidence: dict[str, Any] | None)`
 4. Every check must be deterministic — no randomness, no timestamp-dependent logic
-5. Run: `pytest tests/checks/ -v` — must pass before committing
+5. Populate `evidence` with the raw proof data from the server (status codes, latency distributions, response previews). Never record secret values.
+6. Run: `pytest tests/checks/ -v` — must pass before committing
 
 ### Modifying the scorer (`fynor/scorer.py`)
 1. Read `docs/adr/ADR-02-scoring-weights.md` — weights are LOCKED
 2. Read `docs/tasks/api-implementation-contract.md` — the `ScorecardResult` contract
 3. Security cap rule: auth_token == 0 → final grade ≤ D (max weighted_score = 59.0)
-4. Run: `pytest tests/test_scorer.py -v` — all 10 cases must pass
+4. N/A rule: checks with `result="na"` are excluded from scoring; weights are redistributed
+5. Run: `pytest tests/test_scorer.py -v` — all 10 cases must pass
 
 ### Writing the hosted API (`fynor/api/`)
 1. Read `docs/tasks/api-implementation-contract.md` — FastAPI + Lambda + DynamoDB specs
@@ -44,6 +46,7 @@ an amendment — do not silently deviate.
 3. Read `docs/tasks/build-sequence.md` — which month this feature belongs to
 4. Framework: FastAPI only. No Flask, no Django.
 5. All endpoints must have Pydantic request/response models matching `docs/api-specification.md`
+6. `_dispatch_checks` must run all 11 checks — verify against `fynor/checks/mcp/__init__.py` `ALL_CHECKS`
 
 ### Implementing the certification loop
 1. Read `docs/tasks/certification-loop-contract.md` — EventBridge cron + DynamoDB TTL spec
@@ -100,7 +103,7 @@ See `docs/tasks/build-sequence.md` for the full month-by-month plan. Summary:
 
 | Month | What ships |
 |-------|-----------|
-| 1–2 | CLI pip-installable, 8 checks, scoring, pytest green |
+| 1–2 | CLI pip-installable, 11 checks, scoring, profiles, pytest green |
 | 3 | fynor.tech landing page + waitlist |
 | 4–5 | FastAPI hosted service, Lambda workers, DynamoDB, Pro tier |
 | 6 | Badge CDN (CloudFront), certification endpoint, 30-day cron |

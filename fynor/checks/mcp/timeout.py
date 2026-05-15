@@ -33,6 +33,14 @@ async def check_timeout(adapter: BaseAdapter) -> CheckResult:
     tight = _make_tight_adapter(adapter, timeout=_TIGHT_TIMEOUT_S)
     response = await tight.call()
 
+    base_ev: dict[str, object] = {
+        "timeout_budget_s": _TIGHT_TIMEOUT_S,
+        "fast_threshold_ms": _FAST_THRESHOLD_MS,
+        "response_latency_ms": round(response.latency_ms, 1) if response.latency_ms else None,
+        "response_error": response.error,
+        "response_status": response.status_code if not response.error else None,
+    }
+
     # Hard hang — worst case
     if response.error and "timeout" in response.error.lower():
         return CheckResult(
@@ -46,6 +54,7 @@ async def check_timeout(adapter: BaseAdapter) -> CheckResult:
                 "until the orchestrator's own timeout fires, aborting everything upstream. "
                 "Ensure the server responds (even with an error) within 5 seconds."
             ),
+            evidence={**base_ev, "hung": True},
         )
 
     # Connection error (not timeout) — some graceful signal received
@@ -60,6 +69,7 @@ async def check_timeout(adapter: BaseAdapter) -> CheckResult:
                 f"{response.error}. "
                 "Graceful degradation confirmed — agent can detect the failure and move on."
             ),
+            evidence={**base_ev, "hung": False},
         )
 
     # Fast response — best case
@@ -73,6 +83,7 @@ async def check_timeout(adapter: BaseAdapter) -> CheckResult:
                 f"Fast response: {response.latency_ms:.0f}ms "
                 f"(well within {_TIGHT_TIMEOUT_S:.0f}s threshold)."
             ),
+            evidence={**base_ev, "hung": False},
         )
 
     # Slow but within timeout window
@@ -86,6 +97,7 @@ async def check_timeout(adapter: BaseAdapter) -> CheckResult:
             f"{_TIGHT_TIMEOUT_S:.0f}s threshold but high for agent workloads. "
             "Consider optimising for P95 response times under 2000ms."
         ),
+        evidence={**base_ev, "hung": False},
     )
 
 

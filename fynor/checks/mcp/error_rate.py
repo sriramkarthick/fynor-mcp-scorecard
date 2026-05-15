@@ -54,6 +54,22 @@ async def check_error_rate(adapter: BaseAdapter) -> CheckResult:
         else ""
     )
 
+    # Build status code distribution from actual responses — shows client exactly
+    # which HTTP codes their server returned and how many of each.
+    status_counts: dict[str, int] = {}
+    for r in responses:
+        key = str(r.status_code)
+        status_counts[key] = status_counts.get(key, 0) + 1
+
+    # Capture the first error response preview so client can see real server output.
+    first_error_preview: str | None = None
+    first_error_status: int | None = None
+    for r in responses:
+        if not r.ok and r.status_code != 429:
+            first_error_status = r.status_code
+            first_error_preview = (r.text or "")[:200] if hasattr(r, "text") else None
+            break
+
     return CheckResult(
         check="error_rate",
         passed=passed,
@@ -63,6 +79,18 @@ async def check_error_rate(adapter: BaseAdapter) -> CheckResult:
             f"Error rate: {rate:.1f}% ({error_count}/{_N_REQUESTS} requests failed){rl_note}. "
             f"Pass threshold: ≤{_PASS_THRESHOLD_PCT:.0f}%."
         ),
+        evidence={
+            "probe_count": _N_REQUESTS,
+            "error_count": error_count,
+            "rate_limited_count": rate_limited_count,
+            "error_rate_pct": round(rate, 2),
+            # Real status code distribution from this client's server
+            "status_code_distribution": status_counts,
+            # First actual error response — proves which requests failed and why
+            "first_error_status": first_error_status,
+            "first_error_response_preview": first_error_preview,
+            "pass_threshold_pct": _PASS_THRESHOLD_PCT,
+        },
     )
 
 

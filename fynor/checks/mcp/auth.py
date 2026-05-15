@@ -76,12 +76,22 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
     """
     failures: list[str] = []
 
+    # Evidence dict: carries actual data from this client's server.
+    # Values here are real HTTP responses, not templates.
+    # Constraint (unchanged): secret VALUES are never recorded — only header/param NAMES.
+    ev: dict[str, object] = {
+        "probe_token_used": _FAKE_BEARER_TOKEN,  # the exact token we sent
+    }
+
     # Sub-check 1: credential leakage in response headers
     response = await adapter.call()
+    ev["f1_response_status"] = response.status_code
+    ev["f1_response_headers_checked"] = list(response.headers.keys())
     leaked_headers = [
         h for h in response.headers
         if _SECRET_HEADER_PATTERNS.search(h)
     ]
+    ev["f1_leaked_header_names"] = leaked_headers  # names only, never values
     if leaked_headers:
         # Log header NAMES only — never the values.
         failures.append(
@@ -92,8 +102,17 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
 
     # Sub-check 2: unauthenticated request should be rejected
     f2_fired = False
+    ev["f2_ran"] = isinstance(adapter, MCPAdapter)
     if isinstance(adapter, MCPAdapter):
         unauth = await adapter.call_without_auth()
+        ev["f2_unauth_status"] = unauth.status_code
+        # Capture first 200 chars of unauthenticated response body (no secrets — this
+        # is the response to a request with no credentials at all).
+        _f2_body = unauth.body
+        _f2_preview = (
+            str(_f2_body)[:200] if _f2_body is not None else ""
+        )
+        ev["f2_response_preview"] = _f2_preview
         if unauth.status_code == 200:
             f2_fired = True
             failures.append(
@@ -111,6 +130,7 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
     parsed = urlparse(adapter.target)
     params = parse_qs(parsed.query)
     secret_params = [p for p in params if _SECRET_PARAM_NAMES.search(p)]
+    ev["f3_secret_param_names"] = secret_params  # param names only, never values
     if secret_params:
         failures.append(
             f"Secrets in URL query parameters: {secret_params}. "
@@ -121,6 +141,7 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
     # Sub-check 4: fake/invalid token accepted — only meaningful if F2 did NOT fire.
     # F2 fires when the server accepts unauthenticated requests; in that case,
     # the server trivially accepts any token, so running F4 would double-count.
+    ev["f4_ran"] = isinstance(adapter, MCPAdapter) and not f2_fired
     if isinstance(adapter, MCPAdapter) and not f2_fired:
         try:
             async with httpx.AsyncClient(timeout=10.0) as _client:
@@ -133,6 +154,11 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
                         "User-Agent": "Fynor-Reliability-Checker/1.0",
                     },
                 )
+            ev["f4_response_status"] = _fake_resp.status_code
+            # Capture first 300 chars of the actual response body from this specific server.
+            # This is the proof: what their server returned when we sent a fake token.
+            ev["f4_response_preview"] = (_fake_resp.text or "")[:300]
+            ev["f4_response_content_type"] = _fake_resp.headers.get("content-type", "")
             if _fake_resp.status_code == 200:
                 failures.append(
                     "Server accepted a syntactically invalid token (HTTP 200). "
@@ -141,7 +167,7 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
                 )
         except Exception:
             # Network error on this sub-check is not a failure — skip gracefully.
-            pass
+            ev["f4_ran"] = False
 
     passed = len(failures) == 0
     score = _score_from_failures(len(failures))
@@ -163,6 +189,7 @@ async def check_auth_token(adapter: BaseAdapter) -> CheckResult:
         score=score,
         value=len(failures),
         detail=detail,
+        evidence=ev,
     )
 
 

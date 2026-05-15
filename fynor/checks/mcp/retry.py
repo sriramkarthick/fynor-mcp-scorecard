@@ -23,12 +23,14 @@ Scoring:
 
 from __future__ import annotations
 
+from typing import Any
+
 from fynor.adapters.base import BaseAdapter
 from fynor.history import CheckResult
 
 # ADR-03: two malformed payloads test different invalid states
-_MALFORMED_NULL_METHOD: dict = {"jsonrpc": "2.0", "method": None, "id": 1}
-_MALFORMED_MISSING_ID: dict = {"jsonrpc": "2.0", "method": "test"}
+_MALFORMED_NULL_METHOD: dict[str, Any] = {"jsonrpc": "2.0", "method": None, "id": 1}
+_MALFORMED_MISSING_ID: dict[str, Any] = {"jsonrpc": "2.0", "method": "test"}
 
 
 async def check_retry(adapter: BaseAdapter) -> CheckResult:
@@ -69,11 +71,21 @@ async def check_retry(adapter: BaseAdapter) -> CheckResult:
         score=avg_score,
         value=avg_score,
         detail=detail,
+        evidence={
+            # Actual payloads we sent to this server
+            "probe_1_payload": _MALFORMED_NULL_METHOD,
+            "probe_2_payload": _MALFORMED_MISSING_ID,
+            # Actual responses this server returned to each malformed input
+            "probe_1_result": detail_1,
+            "probe_2_result": detail_2,
+            "probe_1_score": score_1,
+            "probe_2_score": score_2,
+        },
     )
 
 
 async def _probe(
-    adapter: BaseAdapter, payload: dict, label: str
+    adapter: BaseAdapter, payload: dict[str, Any], label: str
 ) -> tuple[int, str]:
     """Send one malformed probe and return (score, detail_fragment)."""
     response = await adapter.call(payload)

@@ -20,6 +20,8 @@ result.detail: names of inadequate tools, or confirmation of full coverage.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fynor.adapters.base import BaseAdapter
 from fynor.history import CheckResult
 
@@ -30,7 +32,7 @@ _MIN_DESC_ADEQUATE = 20
 _MIN_DESC_FULL = 50
 
 
-def _score_one_tool(tool: dict) -> tuple[int, str]:
+def _score_one_tool(tool: dict[str, Any]) -> tuple[int, str]:
     """Score a single tool dict. Returns (score, reason_string)."""
     name = (tool.get("name") or "").strip()
     if not name:
@@ -130,7 +132,36 @@ async def check_tool_description_quality(adapter: BaseAdapter) -> CheckResult:
             f"{fully_described} with full descriptions + typed inputSchema."
         )
 
+    # Build per-tool evidence — shows exactly which tools had issues
+    tool_evidence = []
+    for tool, s, r in zip(tools, scores, reasons):
+        if isinstance(tool, dict):
+            name = tool.get("name", "<unnamed>")
+            desc = (tool.get("description") or "")
+            tool_evidence.append({
+                "name": name,
+                "score": s,
+                "description_length": len(desc),
+                # First 80 chars of their actual description — shows what we evaluated
+                "description_preview": desc[:80],
+                "has_input_schema": bool(
+                    tool.get("inputSchema") or tool.get("input_schema")
+                ),
+                "result": r,
+            })
+
     return CheckResult(
         check=CHECK_NAME, passed=passed, score=worst_score,
         value=fully_described, detail=detail,
+        evidence={
+            "tool_count": len(tools),
+            "fully_described_count": fully_described,
+            # Per-tool scores and description previews from this server's actual tools/list
+            "tools": tool_evidence,
+            "scoring_thresholds": {
+                "min_desc_for_pass": _MIN_DESC_PASSING,
+                "min_desc_for_adequate": _MIN_DESC_ADEQUATE,
+                "min_desc_for_full": _MIN_DESC_FULL,
+            },
+        },
     )

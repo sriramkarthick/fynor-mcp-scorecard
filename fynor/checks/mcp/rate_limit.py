@@ -38,6 +38,26 @@ async def check_rate_limit(adapter: BaseAdapter) -> CheckResult:
     rate_limited = [r for r in responses if r.status_code == 429]
     crashed = [r for r in responses if r.status_code >= 500]
 
+    # Build status distribution from actual responses
+    status_dist: dict[str, int] = {}
+    for r in responses:
+        k = str(r.status_code)
+        status_dist[k] = status_dist.get(k, 0) + 1
+
+    first_429_at = next(
+        (i + 1 for i, r in enumerate(responses) if r.status_code == 429), None
+    )
+
+    base_evidence: dict[str, object] = {
+        "burst_count": _BURST_N,
+        "burst_rps": _BURST_RPS,
+        # Real status code distribution from this server under burst load
+        "status_code_distribution": status_dist,
+        "rate_limited_count": len(rate_limited),
+        "crashed_count": len(crashed),
+        "first_429_at_request": first_429_at,
+    }
+
     # 5xx before any 429 — server crashes under load, cannot self-protect
     if crashed and not rate_limited:
         return CheckResult(
@@ -51,6 +71,7 @@ async def check_rate_limit(adapter: BaseAdapter) -> CheckResult:
                 "Agents cannot distinguish rate limiting from server failure. "
                 "Implement rate limiting that returns 429 before the server saturates."
             ),
+            evidence=base_evidence,
         )
 
     # No rate limiting detected — server silently absorbs or drops
@@ -66,6 +87,7 @@ async def check_rate_limit(adapter: BaseAdapter) -> CheckResult:
                 "Without a 429 + Retry-After signal, agents have no backoff cue and will "
                 "continue flooding the endpoint."
             ),
+            evidence=base_evidence,
         )
 
     # 429 present — check for Retry-After header for precise backoff
@@ -73,10 +95,15 @@ async def check_rate_limit(adapter: BaseAdapter) -> CheckResult:
         "retry-after" in {k.lower() for k in r.headers}
         for r in rate_limited
     )
+    retry_after_value: str | None = None
+    for r in rate_limited:
+        val = {k.lower(): v for k, v in r.headers.items()}.get("retry-after")
+        if val:
+            retry_after_value = val
+            break
 
-    first_429_at = next(
-        (i + 1 for i, r in enumerate(responses) if r.status_code == 429), None
-    )
+    evidence = {**base_evidence, "retry_after_header_present": has_retry_after,
+                "retry_after_value": retry_after_value}
 
     if has_retry_after:
         return CheckResult(
@@ -89,6 +116,7 @@ async def check_rate_limit(adapter: BaseAdapter) -> CheckResult:
                 f"(first at request #{first_429_at}) with Retry-After header. "
                 "Agents can compute exact backoff duration."
             ),
+            evidence=evidence,
         )
 
     return CheckResult(
@@ -102,4 +130,5 @@ async def check_rate_limit(adapter: BaseAdapter) -> CheckResult:
             "Agents detect rate limiting but cannot determine backoff duration. "
             "Add 'Retry-After: <seconds>' to 429 responses to complete agent support."
         ),
+        evidence=evidence,
     )

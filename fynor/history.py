@@ -90,7 +90,7 @@ def read_history(
     interface_type: str | None = None,
     check: str | None = None,
     path: Path | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Read history rows, optionally filtered.
 

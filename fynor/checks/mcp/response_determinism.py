@@ -50,15 +50,30 @@ async def check_response_determinism(adapter: BaseAdapter) -> CheckResult:
         return CheckResult(
             check=CHECK_NAME, passed=False, score=0, value=0,
             detail=f"Probe failures prevent determinism assessment: {'; '.join(errors)}.",
+            evidence={"probe_count": _PROBE_COUNT, "errors": errors},
         )
 
     counts = Counter(fingerprints)
     most_common_fp, most_common_count = counts.most_common(1)[0]
 
+    # Evidence shows the actual structural fingerprints from this server's 3 responses.
+    # A fingerprint is a sorted set of key paths — if they differ, the schema varies.
+    base_ev: dict[str, object] = {
+        "probe_count": _PROBE_COUNT,
+        # The 3 actual structural fingerprints from this server's responses
+        "fingerprints": fingerprints,
+        "all_identical": most_common_count == 3,
+        "majority_fingerprint": most_common_fp,
+        "divergent_probe_numbers": [
+            i + 1 for i, fp in enumerate(fingerprints) if fp != most_common_fp
+        ],
+    }
+
     if most_common_count == 3:
         return CheckResult(
             check=CHECK_NAME, passed=True, score=100, value=3,
             detail=f"All {_PROBE_COUNT} probes returned structurally identical responses. Schema is deterministic.",
+            evidence=base_ev,
         )
     elif most_common_count == 2:
         divergent = [i + 1 for i, fp in enumerate(fingerprints) if fp != most_common_fp]
@@ -68,6 +83,7 @@ async def check_response_determinism(adapter: BaseAdapter) -> CheckResult:
                 f"2 of {_PROBE_COUNT} probes agree; probe(s) {divergent} diverged. "
                 "Minor non-determinism detected. Investigate response variance."
             ),
+            evidence=base_ev,
         )
     else:
         return CheckResult(
@@ -77,4 +93,5 @@ async def check_response_determinism(adapter: BaseAdapter) -> CheckResult:
                 "Server responses are non-deterministic — agents cannot reliably "
                 "parse or reason over this MCP server's output."
             ),
+            evidence=base_ev,
         )

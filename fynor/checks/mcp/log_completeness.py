@@ -23,6 +23,7 @@ A health-only endpoint (40) is a FAIL because it provides no audit capability.
 
 from __future__ import annotations
 
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -57,16 +58,18 @@ async def check_log_completeness(adapter: BaseAdapter) -> CheckResult:
     parsed = urlparse(adapter.target)
     root = f"{parsed.scheme}://{parsed.netloc}"
 
+    all_probed = _LOG_PATHS + _HEALTH_PATHS
+
     # Try log-specific paths first (higher value)
     log_result = await _probe_paths(root, _LOG_PATHS)
     if log_result is not None:
         found_path, body = log_result
-        return _score_log_body(found_path, body)
+        return _score_log_body(found_path, body, all_probed)
 
     # Fall back to health/status paths (lower value — liveness, not audit)
     health_result = await _probe_paths(root, _HEALTH_PATHS)
     if health_result is not None:
-        found_path, _ = health_result
+        found_path, health_body = health_result
         return CheckResult(
             check="log_completeness",
             passed=False,
@@ -77,25 +80,35 @@ async def check_log_completeness(adapter: BaseAdapter) -> CheckResult:
                 "this confirms the server is alive but provides no audit capability. "
                 f"{_IMPL_GUIDE}"
             ),
+            evidence={
+                "paths_probed": all_probed,
+                "found_path": found_path,
+                "found_type": "health/liveness",
+                # Preview of what the health endpoint actually returned
+                "response_preview": str(health_body)[:200],
+            },
         )
 
-    all_paths = _LOG_PATHS + _HEALTH_PATHS
     return CheckResult(
         check="log_completeness",
         passed=False,
         score=0,
         value=None,
         detail=(
-            f"No observability endpoint found at: {', '.join(all_paths)}. "
+            f"No observability endpoint found at: {', '.join(all_probed)}. "
             "Agents in regulated environments cannot operate without an audit trail. "
             f"{_IMPL_GUIDE}"
         ),
+        evidence={
+            "paths_probed": all_probed,
+            "found_path": None,
+        },
     )
 
 
 async def _probe_paths(
     root: str, paths: list[str]
-) -> tuple[str, dict | list | str] | None:
+) -> tuple[str, dict[str, Any] | list[Any] | str] | None:
     """
     Probe each path in order; return (path, body) for the first 200 response.
     Returns None if no path responds with 200.
@@ -106,7 +119,7 @@ async def _probe_paths(
                 r = await client.get(f"{root}{path}")
                 if r.status_code == 200:
                     try:
-                        body: dict | list | str = r.json()
+                        body: dict[str, Any] | list[Any] | str = r.json()
                     except Exception:  # noqa: BLE001
                         body = r.text
                     return path, body
@@ -116,9 +129,12 @@ async def _probe_paths(
 
 
 def _score_log_body(
-    found_path: str, body: dict | list | str
+    found_path: str, body: dict[str, Any] | list[Any] | str, all_probed: list[str] | None = None
 ) -> CheckResult:
     """Score a found log endpoint based on its response structure."""
+    body_preview = str(body)[:300]
+    paths_ev: list[str] = all_probed if all_probed is not None else []
+
     if not isinstance(body, (dict, list)):
         # Plain text — log exists but is not machine-queryable
         return CheckResult(
@@ -133,10 +149,17 @@ def _score_log_body(
                 "Return JSON (e.g. [{\"ts\": ..., \"level\": ..., \"msg\": ...}]) "
                 "for full agent compatibility."
             ),
+            evidence={
+                "paths_probed": all_probed,
+                "found_path": found_path,
+                "response_format": "plain-text",
+                "response_preview": body_preview,
+            },
         )
 
     body_keys = _extract_keys(body)
     has_timestamps = bool(body_keys & _TIMESTAMP_KEYS)
+    matched_ts_keys = sorted(body_keys & _TIMESTAMP_KEYS)
 
     if has_timestamps:
         return CheckResult(
@@ -148,6 +171,15 @@ def _score_log_body(
                 f"Structured JSON audit log with timestamp fields found at {found_path!r}. "
                 "Fully queryable by agents and compliant with audit requirements."
             ),
+            evidence={
+                "paths_probed": all_probed,
+                "found_path": found_path,
+                "response_format": "json",
+                # The actual timestamp field names found in this server's response
+                "timestamp_fields_found": matched_ts_keys,
+                "all_fields_found": sorted(body_keys)[:20],
+                "response_preview": body_preview,
+            },
         )
 
     return CheckResult(
@@ -160,10 +192,19 @@ def _score_log_body(
             f"Expected one of: {sorted(_TIMESTAMP_KEYS)[:5]}... "
             "Add a timestamp field to enable time-range queries by agents and auditors."
         ),
+        evidence={
+            "paths_probed": all_probed,
+            "found_path": found_path,
+            "response_format": "json",
+            "timestamp_fields_found": [],
+            # Actual field names returned by this server — shows exactly what's there
+            "all_fields_found": sorted(body_keys)[:20],
+            "response_preview": body_preview,
+        },
     )
 
 
-def _extract_keys(body: dict | list) -> set[str]:
+def _extract_keys(body: dict[str, Any] | list[Any]) -> set[str]:
     """Recursively collect all dict keys from a JSON body (sample first 5 items)."""
     keys: set[str] = set()
     if isinstance(body, dict):

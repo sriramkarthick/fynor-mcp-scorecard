@@ -27,7 +27,7 @@ for Claude-powered narrative synthesis tailored to the client's stack.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 from fynor.history import CheckResult
 
@@ -65,7 +65,7 @@ _InterpEntry = CheckInterpretation | Callable[[CheckResult], CheckInterpretation
 # Helper: safe evidence access
 # ---------------------------------------------------------------------------
 
-def _ev(result: CheckResult, key: str, default: object = None) -> object:
+def _ev(result: CheckResult, key: str, default: object = None) -> Any:
     """Safely read a key from result.evidence, returning default if absent."""
     if result.evidence is None:
         return default

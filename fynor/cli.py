@@ -30,6 +30,141 @@ import textwrap
 from fynor import __version__
 
 
+def _render_evidence(check: str, ev: dict) -> None:  # type: ignore[type-arg]
+    """Render check-specific evidence from the client's server in a readable format."""
+    if check == "latency_p95":
+        latencies = ev.get("latencies_ms_sorted", [])
+        if latencies:
+            click.echo(f"    We sent {ev.get('probe_count', 20)} probe requests.")
+            click.echo(f"    Response times (ms, sorted): {', '.join(str(x) for x in latencies)}")
+            click.echo(f"    P95 = position {ev.get('p95_index', '?')+1} of {len(latencies)}: "
+                       f"{ev.get('p95_ms', '?')}ms")
+            click.echo(f"    Min: {ev.get('min_ms')}ms  |  Max: {ev.get('max_ms')}ms  |  "
+                       f"Errors: {ev.get('error_count', 0)}")
+
+    elif check == "error_rate":
+        dist = ev.get("status_code_distribution", {})
+        if dist:
+            click.echo(f"    We sent {ev.get('probe_count', 50)} probe requests.")
+            dist_str = "  ".join(f"HTTP {k}: {v}×" for k, v in sorted(dist.items()))
+            click.echo(f"    Response distribution: {dist_str}")
+        if ev.get("first_error_status"):
+            click.echo(f"    First error — HTTP {ev['first_error_status']}:")
+            preview = ev.get("first_error_response_preview", "")
+            if preview:
+                click.echo(f"      {preview[:120]}")
+        if ev.get("rate_limited_count"):
+            click.echo(f"    Note: {ev['rate_limited_count']} HTTP 429 responses excluded "
+                       f"from error count (rate-limit, not error).")
+
+    elif check == "auth_token":
+        if ev.get("f4_ran"):
+            click.echo(f"    We sent: Authorization: Bearer {ev.get('probe_token_used')}")
+            click.echo(f"    Your server responded: HTTP {ev.get('f4_response_status', '?')}")
+            preview = ev.get("f4_response_preview", "")
+            if preview:
+                click.echo(f"    Response body (first 300 chars):")
+                for line in _wrap(preview, 68):
+                    click.echo(f"      {line}")
+        if ev.get("f2_ran") and ev.get("f2_unauth_status") is not None:
+            click.echo(f"    Unauthenticated request → HTTP {ev['f2_unauth_status']}")
+            if ev.get("f2_response_preview"):
+                click.echo(f"      {ev['f2_response_preview'][:100]}")
+        leaked = ev.get("f1_leaked_header_names", [])
+        if leaked:
+            click.echo(f"    Credential-pattern headers in response: {leaked}")
+
+    elif check == "schema":
+        violations = ev.get("violations", [])
+        if violations:
+            click.echo(f"    Violations found in your server's response:")
+            for v in violations:
+                click.echo(f"      • {v}")
+        fields = ev.get("worst_probe_fields")
+        if fields:
+            click.echo(f"    Fields present in response: {list(fields.keys())}")
+
+    elif check == "retry":
+        click.echo(f"    Probe 1 (null method) → {ev.get('probe_1_result')}")
+        click.echo(f"    Probe 2 (missing id)  → {ev.get('probe_2_result')}")
+
+    elif check == "rate_limit":
+        dist = ev.get("status_code_distribution", {})
+        dist_str = "  ".join(f"HTTP {k}: {v}×" for k, v in sorted(dist.items()))
+        click.echo(f"    Burst: {ev.get('burst_count')} requests at "
+                   f"{ev.get('burst_rps')} req/s")
+        click.echo(f"    Response distribution: {dist_str}")
+        if ev.get("first_429_at_request"):
+            click.echo(f"    First 429 at request #{ev['first_429_at_request']}")
+        if "retry_after_header_present" in ev:
+            present = ev["retry_after_header_present"]
+            click.echo(f"    Retry-After header: {'present' if present else 'absent'}"
+                       + (f" (value: {ev['retry_after_value']})" if ev.get("retry_after_value") else ""))
+
+    elif check == "timeout":
+        click.echo(f"    Timeout budget: {ev.get('timeout_budget_s')}s")
+        if ev.get("hung"):
+            click.echo(f"    Result: server did not respond — hard timeout after "
+                       f"{ev.get('timeout_budget_s')}s")
+        elif ev.get("response_latency_ms") is not None:
+            click.echo(f"    Response time: {ev['response_latency_ms']}ms "
+                       f"(HTTP {ev.get('response_status', 'ERR')})")
+
+    elif check == "log_completeness":
+        probed = ev.get("paths_probed", [])
+        found = ev.get("found_path")
+        click.echo(f"    Paths probed: {', '.join(probed)}")
+        if found:
+            click.echo(f"    Responding path: {found}")
+            ts_fields = ev.get("timestamp_fields_found", [])
+            all_fields = ev.get("all_fields_found", [])
+            if ts_fields:
+                click.echo(f"    Timestamp fields found: {ts_fields}")
+            if all_fields:
+                click.echo(f"    All fields found: {all_fields}")
+            preview = ev.get("response_preview", "")
+            if preview:
+                click.echo(f"    Response preview: {preview[:150]}")
+        else:
+            click.echo("    No endpoint responded with HTTP 200.")
+
+    elif check == "data_freshness":
+        field = ev.get("timestamp_field_found")
+        if field:
+            click.echo(f"    Timestamp field found: '{field}'")
+            click.echo(f"    Raw value from your server: {ev.get('timestamp_raw_value')}")
+            click.echo(f"    Parsed as (UTC): {ev.get('timestamp_parsed_utc')}")
+            click.echo(f"    Data age: {ev.get('data_age_human')} "
+                       f"({ev.get('data_age_minutes')} minutes)")
+        else:
+            fields = ev.get("fields_found_in_response", [])
+            searched = ev.get("timestamp_keys_searched", [])
+            if fields:
+                click.echo(f"    Fields in your response: {fields}")
+                click.echo(f"    Timestamp keys we searched for: {searched}")
+
+    elif check == "tool_description_quality":
+        tools = ev.get("tools", [])
+        if tools:
+            click.echo(f"    {ev.get('tool_count')} tools found in tools/list:")
+            for t in tools[:8]:  # cap at 8 to keep output readable
+                bar = "✓" if t["score"] >= 60 else "✗"
+                click.echo(f"      {bar} {t['name']}  (score {t['score']}, "
+                           f"desc: {t['description_length']} chars) — {t['result']}")
+                if t.get("description_preview"):
+                    click.echo(f"        \"{t['description_preview']}...\"")
+
+    elif check == "response_determinism":
+        fps = ev.get("fingerprints", [])
+        if fps:
+            click.echo(f"    3 probe structural fingerprints:")
+            for i, fp in enumerate(fps, 1):
+                click.echo(f"      Probe {i}: {fp[:80]}")
+            divergent = ev.get("divergent_probe_numbers", [])
+            if divergent:
+                click.echo(f"    Divergent probes: {divergent}")
+
+
 def _wrap(text: str, width: int = 70) -> list[str]:
     """Wrap a plain-text string to the given width, preserving newlines."""
     lines: list[str] = []
@@ -128,7 +263,7 @@ async def _run_check(
     from fynor.adapters.mcp import MCPAdapter
     from fynor.adapters.rest import RESTAdapter
     from fynor.checks.mcp import ALL_CHECKS as MCP_CHECKS
-    from fynor.history import append_result
+    from fynor.history import append_result, CheckResult
     from fynor.scorer import score
 
     # Build adapter
@@ -228,7 +363,7 @@ async def _run_check(
     click.echo()
 
     # Collect failing checks for expanded detail section below the summary table
-    failing: list = []
+    failing: list[CheckResult] = []
 
     for r in results:
         if r.result == "na":
@@ -268,6 +403,13 @@ async def _run_check(
             detail_lines = _wrap(r.detail, 70)
             for line in detail_lines:
                 click.echo(f"    {line}")
+            # Show client-specific evidence from their server's actual responses
+            if r.evidence:
+                ev = r.evidence
+                click.echo()
+                click.echo(f"  EVIDENCE FROM YOUR SERVER")
+                _render_evidence(r.check, ev)
+
             if interp:
                 click.echo()
                 click.echo(f"  BUSINESS IMPACT FOR YOUR AI AGENTS")
