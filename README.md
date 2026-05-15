@@ -10,7 +10,7 @@ fynor check --target https://your-mcp-server.com/mcp --type mcp
 ```
 
 ```
-──────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────
   Target:    https://your-mcp-server.com/mcp
   Type:      MCP
   Grade:     B  (81.5/100)
@@ -19,15 +19,46 @@ fynor check --target https://your-mcp-server.com/mcp --type mcp
   Reliability:  72.0/100
   Performance:  80.0/100
 
-  ✓ latency_p95          100  P95 latency: 340ms over 20 requests.
-  ✗ error_rate             30  Error rate: 8.2% (4/50 requests failed).
-  ✓ schema               100  MCP schema valid: JSON-RPC 2.0 compliant.
-  ✓ retry                100  Correctly returned 400 on malformed request.
-  ✓ auth_token           100  No leakage, 401 on missing auth, no URL secrets.
-  ✓ rate_limit           100  429 + Retry-After returned on burst.
-  ✓ timeout              100  Response in 340ms (within 2s threshold).
-  ✗ log_completeness       0  No audit log endpoint found.
-──────────────────────────────────────────────────────────────
+  ✓ latency_p95              100  P95 latency: 340ms over 20 requests.
+  ✗ error_rate                30  Error rate: 8.2% (4/50 requests failed).
+  ✓ schema                   100  MCP schema valid: JSON-RPC 2.0 compliant.
+  ✓ retry                    100  Correctly returned 400 on malformed request.
+  ✓ auth_token               100  No leakage, 401 on missing auth, no URL secr
+  ✓ rate_limit               100  429 + Retry-After returned on burst.
+  ✓ timeout                  100  Response in 340ms (within 2s threshold).
+  ✗ log_completeness           0  No audit log endpoint found.
+  ✓ data_freshness           100  Timestamp found: updated_at = 2026-05-15T...
+  ✓ tool_description_quality 100  All 4 tools have name + description + schema.
+  ✓ response_determinism     100  3/3 probes returned identical schema.
+────────────────────────────────────────────────────────────
+
+  Fix error_rate and log_completeness to reach grade A.
+```
+
+**Checking a REST API** (3 MCP-specific checks are automatically marked N/A):
+
+```bash
+fynor check --target https://api.example.com --type rest
+```
+
+```
+────────────────────────────────────────────────────────────
+  Target:    https://api.example.com
+  Type:      REST
+  Grade:     A  (92.5/100)
+
+  ✓ latency_p95              100  P95 latency: 120ms over 20 requests.
+  ✓ error_rate               100  Error rate: 0.0% (0/50 requests failed).
+  - schema                   N/A  Not applicable: MCP (JSON-RPC 2.0) only.
+  - retry                    N/A  Not applicable: MCP (JSON-RPC 2.0) only.
+  ✓ auth_token               100  No leakage, 401 on missing auth, no URL secr
+  ✓ rate_limit                80  429 returned but Retry-After header missing.
+  ✓ timeout                  100  Response in 120ms (within 2s threshold).
+  ✓ log_completeness          60  Partial log coverage: /logs found, no fields.
+  ✓ data_freshness           100  Timestamp found: updated_at = 2026-05-15T...
+  - tool_description_quality N/A  Not applicable: MCP (JSON-RPC 2.0) only.
+  ✓ response_determinism     100  3/3 probes returned identical schema.
+────────────────────────────────────────────────────────────
 ```
 
 ---
@@ -167,14 +198,37 @@ pip install fynor
 
 **Requirements:** Python 3.11+
 
-**Run your first check:**
+> **Windows users:** Fynor uses Unicode characters (─, ✓, ✗) in its output.
+> These display correctly in Windows Terminal and VS Code. If you use the
+> legacy `cmd.exe` or an older terminal, run `chcp 65001` first to enable UTF-8.
+
+**Run your first check (public MCP server):**
 ```bash
-fynor check --target http://localhost:8000/mcp --type mcp
+fynor check --target https://mcp.example.com/mcp --type mcp
+```
+
+**Run against your local server:**
+```bash
+# --skip-ssrf-check is required for localhost targets
+fynor check --target http://localhost:8000/mcp --type mcp --skip-ssrf-check
+```
+
+**Authenticated server:**
+```bash
+fynor check --target https://mcp.example.com/mcp --type mcp --auth-token YOUR_TOKEN
+# or set the environment variable:
+export FYNOR_AUTH_TOKEN=YOUR_TOKEN
+fynor check --target https://mcp.example.com/mcp --type mcp
+```
+
+**Check a REST API:**
+```bash
+fynor check --target https://api.example.com --type rest
 ```
 
 **Check history and patterns:**
 ```bash
-fynor history --target http://localhost:8000/mcp
+fynor history --target https://mcp.example.com/mcp
 fynor patterns
 ```
 
@@ -185,7 +239,10 @@ fynor check --target https://api.example.com --type rest --output json
 
 **Context-specific profiles:**
 ```bash
+# security: stricter thresholds for auth-critical APIs
+# financial: SOC 2 / PCI DSS aligned pass thresholds
 fynor check --target https://api.example.com --type mcp --profile security
+fynor check --target https://api.example.com --type mcp --profile financial
 ```
 
 **GitHub Action:**
