@@ -278,3 +278,92 @@ class TestSharedUsedTogether:
         r1 = {"result": "ok", "ts": "2026-01-01T00:00:00Z"}
         r2 = {"result": "ok", "ts": "2026-01-02T00:00:00Z"}
         assert compare_responses(r1, r2) is False
+
+
+# ===========================================================================
+# Regression: find_timestamp word-boundary matching (bug fix 2026-05-15)
+# ---------------------------------------------------------------------------
+# Substring matching caused "ts" to match inside "events_url" and similar
+# field names that contain a timestamp keyword as a substring but are NOT
+# timestamp fields.  Switch to word-boundary (underscore-split) semantics:
+#   - "ts" must be an exact key name OR an underscore-separated segment.
+#   - "events_url" → parts {"events", "url"} → no match ✓
+# ===========================================================================
+
+class TestFindTimestampWordBoundary:
+    """Regression tests for the find_timestamp false-positive fix."""
+
+    def test_events_url_not_treated_as_timestamp(self):
+        """'events_url' contains 'ts' as a substring but is NOT a timestamp field."""
+        body = {
+            "events_url": "https://api.github.com/repos/x/y/events",
+            "id": 12345,
+            "name": "my-repo",
+        }
+        dt = extract_timestamp(body, {})
+        # No actual timestamp in this body — must return None, not a parsed URL.
+        assert dt is None
+
+    def test_status_field_not_treated_as_timestamp(self):
+        """'status' contains no timestamp keyword at word-boundary level."""
+        body = {"status": "active", "count": 99}
+        dt = extract_timestamp(body, {})
+        assert dt is None
+
+    def test_last_access_count_not_treated_as_timestamp(self):
+        """'last_access_count' — 'last' is not in _TIMESTAMP_KEYS."""
+        body = {"last_access_count": 42}
+        dt = extract_timestamp(body, {})
+        assert dt is None
+
+    def test_exact_ts_key_still_matches(self):
+        """A key named exactly 'ts' must still match."""
+        body = {"ts": "2026-05-15T12:00:00Z"}
+        dt = extract_timestamp(body, {})
+        assert dt is not None
+        assert dt.year == 2026
+
+    def test_message_ts_compound_key_matches(self):
+        """'message_ts' → underscore-split gives 'ts' → should match."""
+        body = {"message_ts": "2026-05-15T12:00:00Z"}
+        dt = extract_timestamp(body, {})
+        assert dt is not None
+
+    def test_event_timestamp_key_matches(self):
+        """'event_timestamp' → 'timestamp' segment → should match."""
+        body = {"event_timestamp": "2026-05-15T12:00:00Z"}
+        dt = extract_timestamp(body, {})
+        assert dt is not None
+
+    def test_real_github_api_shape_no_false_positive(self):
+        """Simplified GitHub API response shape — should not extract a timestamp
+        from non-timestamp URL fields like 'events_url' or 'forks_url'."""
+        body = {
+            "id": 1296269,
+            "node_id": "MDEwOlJlcG9zaXRvcnkxMjk2MjY5",
+            "name": "Hello-World",
+            "full_name": "octocat/Hello-World",
+            "private": False,
+            "forks_url": "https://api.github.com/repos/octocat/Hello-World/forks",
+            "events_url": "https://api.github.com/repos/octocat/Hello-World/events",
+            "stargazers_count": 80,
+            "watchers_count": 80,
+            "forks_count": 9,
+        }
+        dt = extract_timestamp(body, {})
+        # None of these fields are timestamps — result must be None.
+        assert dt is None
+
+    def test_real_github_api_shape_with_actual_timestamp_field(self):
+        """When a real timestamp field IS present alongside URL fields, it finds it."""
+        body = {
+            "id": 1296269,
+            "events_url": "https://api.github.com/repos/octocat/Hello-World/events",
+            "created_at": "2010-04-14T02:31:30Z",
+            "updated_at": "2011-01-26T19:14:43Z",
+            "pushed_at": "2011-01-26T19:06:43Z",
+        }
+        dt = extract_timestamp(body, {})
+        # created_at is in _TIMESTAMP_KEYS and appears first — should match.
+        assert dt is not None
+        assert dt.year == 2010

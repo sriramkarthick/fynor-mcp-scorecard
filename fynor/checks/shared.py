@@ -85,12 +85,25 @@ def find_timestamp(obj: Any, depth: int = 0) -> tuple[str | None, str | None]:
 
     Identical to the former ``_find_timestamp`` in
     ``fynor/checks/mcp/data_freshness.py``.
+
+    Key matching uses word-boundary semantics: a key matches when its
+    lowercase form is in ``_TIMESTAMP_KEYS`` exactly, OR when any
+    underscore-separated segment of the lowercase key is in
+    ``_TIMESTAMP_KEYS``.  This prevents short keys like ``"ts"`` from
+    matching unrelated fields such as ``"events_url"`` (which contains
+    the substring "ts" but is not a timestamp field).
+
+    Examples that match:    "ts", "timestamp", "created_at", "event_ts",
+                            "updated_at", "message_ts_value"
+    Examples that do NOT:   "events_url", "status", "last_access_count"
     """
     if depth > 4:
         return None, None
     if isinstance(obj, dict):
         for key, value in obj.items():
-            if any(ts_key in key.lower() for ts_key in _TIMESTAMP_KEYS):
+            low = key.lower()
+            parts: set[str] = set(low.split("_"))
+            if low in _TIMESTAMP_KEYS or bool(parts & _TIMESTAMP_KEYS):
                 if isinstance(value, (str, int, float)):
                     return key, str(value)
             found_key, found_val = find_timestamp(value, depth + 1)

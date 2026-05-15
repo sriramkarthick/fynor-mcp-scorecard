@@ -225,10 +225,11 @@ def _build_summary(
     results: list[CheckResult],
     capped: bool,
 ) -> str:
-    failed = [r for r in results if not r.passed]
+    scored = [r for r in results if r.result != "na"]
+    failed = [r for r in scored if not r.passed]
     if not failed:
         return f"Grade {grade}: all checks passed."
 
     failed_names = ", ".join(r.check for r in failed)
     cap_note = " [ADR-02 security cap applied]" if capped else ""
-    return f"Grade {grade}: {len(failed)}/{len(results)} checks failed ({failed_names}).{cap_note}"
+    return f"Grade {grade}: {len(failed)}/{len(scored)} checks failed ({failed_names}).{cap_note}"

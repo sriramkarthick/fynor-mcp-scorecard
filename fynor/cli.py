@@ -141,6 +141,29 @@ async def _run_check(
     check_tasks = [check_fn(adapter) for check_fn in checks]
     results = await _asyncio.gather(*check_tasks)
 
+    # Mark MCP-only checks as N/A for non-MCP interface types.
+    # schema, retry, and tool_description_quality rely on JSON-RPC 2.0
+    # semantics that REST/GraphQL/gRPC targets do not expose.  Scoring them
+    # as FAIL (0) distorts the grade — they must be excluded from scoring.
+    if interface_type != "mcp":
+        from fynor.history import CheckResult as _CheckResult
+        _MCP_ONLY: frozenset[str] = frozenset({"schema", "retry", "tool_description_quality"})
+        results = tuple(
+            _CheckResult(
+                check=r.check,
+                passed=False,
+                score=0,
+                value=None,
+                detail=(
+                    "Not applicable: this check only applies to MCP (JSON-RPC 2.0) interfaces."
+                ),
+                result="na",
+            )
+            if r.check in _MCP_ONLY
+            else r
+            for r in results
+        )
+
     # Apply profile-specific pass thresholds before scoring
     from fynor.profiles import get_profile, apply_profile
     active_profile = get_profile(profile)
@@ -175,8 +198,12 @@ async def _run_check(
     click.echo()
 
     for r in results:
-        status = "✓" if r.passed else "✗"
-        score_str = f"{r.score:3d}"
+        if r.result == "na":
+            status = "-"
+            score_str = " N/A"
+        else:
+            status = "✓" if r.passed else "✗"
+            score_str = f"{r.score:3d}"
         click.echo(f"  {status} {r.check.ljust(22)} {score_str}  {r.detail[:60]}")
 
     click.echo("─" * 60)
