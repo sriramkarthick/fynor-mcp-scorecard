@@ -48,7 +48,10 @@ __all__ = [
 # Use the local ``fynor`` CLI tool (``pip install fynor``) instead.
 # Decision D1 — plan-eng-review 2026-05-15.
 _VALID_INTERFACE_TYPES = frozenset({
-    "mcp", "rest", "graphql", "grpc", "websocket", "soap"
+    "mcp", "rest", "graphql", "grpc", "websocket",
+    # "soap" intentionally excluded — SOAPAdapter not yet implemented.
+    # Accepting "soap" would produce a misleading runtime error instead of
+    # a clear validation failure. Re-add when fynor/adapters/soap.py ships.
 })
 
 # Surface a clear error for callers who try to use "cli" via the web API.
@@ -62,8 +65,11 @@ _WEB_BLOCKED_TYPES: dict[str, str] = {
 }
 
 _VALID_CHECK_NAMES = frozenset({
+    # Original 8 checks (Month 1–2)
     "latency_p95", "error_rate", "schema", "retry",
     "auth_token", "rate_limit", "timeout", "log_completeness",
+    # Extended checks (added per ADR-03 amendments)
+    "data_freshness", "tool_description_quality", "response_determinism",
 })
 
 

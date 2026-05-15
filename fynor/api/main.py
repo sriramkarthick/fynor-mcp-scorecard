@@ -272,7 +272,7 @@ async def _run_checks_background(
         # Run all checks concurrently
         results = await _dispatch_checks(adapter, interface_type, options)
 
-        scorecard = score(results)
+        scorecard = score(target_url, interface_type, results)
 
         # Persist completed result
         db.update_item(
@@ -343,16 +343,20 @@ def _build_adapter(target_url: str, interface_type: str, options: dict) -> Any:
     cls = adapters.get(interface_type)
     if cls is None:
         raise ValueError(f"No adapter for interface type: {interface_type!r}")
-    return cls(target=str(target_url), options=options)
+    # Adapters take (target, timeout, auth_token) — no generic options kwarg.
+    # auth_token extracted from options if present (already stripped for web API
+    # by validate_check_options, so this path is CLI-only in practice).
+    timeout = float(options.get("timeout_ms", 10_000)) / 1000.0
+    return cls(target=str(target_url), timeout=timeout)
 
 
 async def _dispatch_checks(adapter: Any, interface_type: str, options: dict) -> list:
     """Run all applicable checks concurrently and return CheckResult list."""
-    from fynor.checks.mcp.latency_p95 import check_latency_p95
+    from fynor.checks.mcp.latency import check_latency_p95       # file: latency.py
     from fynor.checks.mcp.error_rate import check_error_rate
     from fynor.checks.mcp.schema import check_schema
     from fynor.checks.mcp.retry import check_retry
-    from fynor.checks.mcp.auth_token import check_auth_token
+    from fynor.checks.mcp.auth import check_auth_token            # file: auth.py
     from fynor.checks.mcp.rate_limit import check_rate_limit
     from fynor.checks.mcp.timeout import check_timeout
     from fynor.checks.mcp.log_completeness import check_log_completeness

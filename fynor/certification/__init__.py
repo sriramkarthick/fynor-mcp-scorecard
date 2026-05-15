@@ -22,6 +22,6 @@ Build sequence:
   Month 20  — Certification marketplace (v1.0)
 """
 
-from fynor.certification.certificate import Certificate, CertificationStatus
+from fynor.certification.certificate import Certificate, CertStatus
 
-__all__ = ["Certificate", "CertificationStatus"]
+__all__ = ["Certificate", "CertStatus"]

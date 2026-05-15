@@ -11,12 +11,14 @@ Why P95? ADR-03: P50 hides tail behaviour; P99 over 20 requests is
 statistically unstable (determined by one data point).
 Why 20 requests? ADR-04: the 19th-highest latency is stable and reproducible.
 
-Scoring:
-  P95 ≤  500ms  → 100
-  P95 ≤ 1000ms  →  75
-  P95 ≤ 2000ms  →  50   (pass threshold: score ≥ 50, P95 < 2000ms)
-  P95 ≤ 3000ms  →  25
-  P95 > 3000ms  →   0
+Scoring (step function — no interpolation, per check-implementation-contract.md):
+  P95 ≤  200ms  → 100
+  P95 ≤  500ms  →  80
+  P95 ≤ 1000ms  →  60   (pass threshold: score ≥ 60, P95 ≤ 1000ms)
+  P95 > 1000ms  →   0
+
+Rationale: 1000ms P95 is the agent pipeline budget from ADR-04.
+Above 1000ms, agents risk cascading timeout failures in multi-tool workflows.
 
 Minimum sample: if fewer than 10 of 20 requests succeed, score = 0
 (insufficient data to compute a reliable P95).
@@ -24,13 +26,12 @@ Minimum sample: if fewer than 10 of 20 requests succeed, score = 0
 
 from __future__ import annotations
 
-import statistics
-
 from fynor.adapters.base import BaseAdapter
 from fynor.history import CheckResult
 
-# Thresholds — locked in ADR-04. Do not change without a superseding ADR.
-_PASS_THRESHOLD_MS = 2000.0
+# Thresholds — locked in check-implementation-contract.md §1.
+# Do not change without updating the contract document.
+_PASS_THRESHOLD_MS = 1000.0   # P95 must be ≤ 1000ms to pass
 _N_REQUESTS = 20
 _MIN_SUCCESSFUL = 10  # minimum successful responses for a valid P95 estimate
 _RPS = 2.0            # 2 req/s = 500ms interval, preserves sequential behaviour
@@ -70,10 +71,14 @@ async def check_latency_p95(adapter: BaseAdapter) -> CheckResult:
             ),
         )
 
-    # P95: sort values, take the 95th percentile position
-    p95 = statistics.quantiles(latencies, n=100)[94]
+    # P95: sort the 20 values, take the 19th value (0-indexed = index 18).
+    # This is the deterministic formula from check-implementation-contract.md §1.
+    # No interpolation — same server state always produces the same index.
+    sorted_latencies = sorted(latencies)
+    p95_idx = max(0, int(len(sorted_latencies) * 0.95) - 1)
+    p95 = sorted_latencies[p95_idx]
     score = _score_from_p95(p95)
-    passed = p95 < _PASS_THRESHOLD_MS
+    passed = score >= 60   # pass threshold: score ≥ 60
 
     error_note = f" ({error_count} requests failed — excluded from P95)" if error_count else ""
 
@@ -85,7 +90,7 @@ async def check_latency_p95(adapter: BaseAdapter) -> CheckResult:
         detail=(
             f"P95 latency: {p95:.0f}ms over {len(latencies)} successful "
             f"requests{error_note}. "
-            f"Pass threshold: <{_PASS_THRESHOLD_MS:.0f}ms."
+            f"Pass threshold: ≤{_PASS_THRESHOLD_MS:.0f}ms."
         ),
     )
 
@@ -94,15 +99,14 @@ def _score_from_p95(p95_ms: float) -> int:
     """
     Map P95 latency to a 0-100 score.
 
-    Bands reflect agent pipeline requirements: a 500ms P95 is agent-safe;
-    above 2000ms the pipeline blocker risk becomes unacceptable.
+    Step function (no interpolation) — locked in check-implementation-contract.md §1.
+    Bands reflect agent pipeline requirements: 1000ms P95 is the outer limit
+    for safe single-tool invocation in a multi-step agent workflow.
     """
-    if p95_ms <= 500:
+    if p95_ms <= 200:
         return 100
+    if p95_ms <= 500:
+        return 80
     if p95_ms <= 1000:
-        return 75
-    if p95_ms <= 2000:
-        return 50
-    if p95_ms <= 3000:
-        return 25
+        return 60
     return 0

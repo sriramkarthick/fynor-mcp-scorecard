@@ -41,10 +41,15 @@ class TestValidateInterfaceType:
         # The generic "Supported types:" message should NOT appear — cli gets its own message
         assert "Supported types:" not in str(exc_info.value)
 
-    @pytest.mark.parametrize("valid_type", ["mcp", "rest", "graphql", "grpc", "websocket", "soap"])
+    @pytest.mark.parametrize("valid_type", ["mcp", "rest", "graphql", "grpc", "websocket"])
     def test_valid_types_accepted(self, valid_type: str):
-        """All six web-supported types must be accepted without raising."""
+        """All five web-supported types must be accepted without raising."""
         validate_interface_type(valid_type)  # Must not raise
+
+    def test_soap_rejected(self):
+        """'soap' must be rejected — no SOAP adapter is implemented."""
+        with pytest.raises(ValueError, match="Supported types:"):
+            validate_interface_type("soap")
 
     def test_unknown_type_rejected_with_supported_list(self):
         """Truly unknown types get the generic error listing supported types."""
